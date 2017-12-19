@@ -500,6 +500,7 @@ int IBIS::assign_px( int y, int x, int index_xy, int* unique_angular, int index_
     float D=-1.f;
     //int index_xy;
     float total_dist;
+    count_px_processed++;
 
     for( i=0; i<index_unique; i++ ) {
         index_sp = unique_angular[ i ];
@@ -947,7 +948,7 @@ double IBIS::now_ms(void)
 void IBIS::enforceConnectivity()
 {
     //local var
-    int label;
+    int label = 0;
     int i, j, k;
     int n, c, count;
     int x, y;
@@ -1040,7 +1041,9 @@ void IBIS::mask_propagate_SP() {
         y_limit = height + mask_size[ index_mask-1 ];
         x_limit = width + mask_size[ index_mask-1 ];
 
-//#pragma omp parallel for num_threads( 4 )
+#if THREAD_count > 1
+#pragma omp parallel for num_threads( THREAD_count )
+#endif
         for( int y=start_xy[ index_mask-1 ]; y<y_limit; y+=mask_size[ index_mask-1 ] ) {
             for( int x=start_xy[ index_mask-1 ]; x<x_limit; x+=mask_size[ index_mask-1 ] ) {
 
@@ -1347,6 +1350,7 @@ void IBIS::process( cv::Mat* img ) {
             }
 
             adj_label = new int[ 20 ];
+            count_px_processed = 0;
 
             // generates mask coordinates
             generate_mask();

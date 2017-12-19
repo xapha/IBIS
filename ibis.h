@@ -30,6 +30,8 @@ public:
     float getPostProcessingTime() { return st4; }
     int* getLabels() { return labels; }
 
+    float get_complexity() { return count_px_processed / size; }
+
 protected:
 
     void initSeeds();
@@ -102,6 +104,9 @@ private:
     int* unique_parent;
     bool* updated_px;
     //int index_unique;
+
+    float count_px_processed;
+
     int* x_vec;
     int* y_vec;
 
