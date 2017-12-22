@@ -8,23 +8,21 @@
 #include <thread>
 
 #define RENDER_SP_CONTOURS  0
-#define THREAD_count        1
+#define THREAD_count        8
+#define size_roi            9 //9 25 49
 
 class IBIS
 {
+
 public:
 
     IBIS(int maxSPNum, int compacity);
     virtual ~IBIS();
 
     void process( cv::Mat* img );
-    cv::Mat &getLabelContourMask();
 
     int getMaxSPNumber() { return maxSPNumber;}
     int getActualSPNumber() { return SPNumber; }
-    float *getRGBValues(int &numSP) { numSP = SPNumber; return labMeanSeeds; }
-    int *getPropagation() { return index_propagation; }
-    void renderMeanRGB(cv::Mat* pImg);
 
     float getComputationTime() { return st3; }
     float getPostProcessingTime() { return st4; }
@@ -35,38 +33,20 @@ public:
 protected:
 
     void initSeeds();
-    void boundaries();
-
-    // STEP 1: propagate SP through the new frame
     void mask_propagate_SP();
-
-    // STEP 2: check for creation deletion
-    void assure_contiguity();
-
-    // STEP 2: check for creation deletion
-    void creation_deletion();
-
-    // STEP 4: update seeds values
     void mean_seeds();
-
-    // sub functions
     void generate_mask();
     bool angular_assign( int mask_index, int y, int x, int* angular, int* unique_angular, int index_unique );
     void fill_mask(int x_min, int x_max, int y_min, int y_max, int value);
     void assign_last( int y, int x, int x_min, int x_max, int y_min, int y_max, int* unique_angular, int index_unique );
     void apply_mask( int y, int x, int mask_index );
     int assign_px( int y, int x, int index_xy, int* unique_angular, int index_unique  );
-    void update_seeds( int y, int x, int current_sp, int previous_sp, int index_xy );
-    static int compare (const void * a, const void * b);
-    void find_unique_parent( int mask_index, int* angular, int* unique_angular, int* index_unique );
-    void propagate_SP();
-    static void thread_mask_propagate( IBIS* , int thread_index, int* thread_limit, int step, int mask_index );
     double now_ms(void);
     void enforceConnectivity();
+    void get_looking_area();
 
 private:
 
-    // V.2
     struct Mask {
         int* x_var;
         int* y_var;
@@ -103,6 +83,8 @@ private:
     int index_mask;
     int* unique_parent;
     bool* updated_px;
+    int* adjacent_sp;
+    int* initial_repartition;
     //int index_unique;
 
     float count_px_processed;
@@ -126,7 +108,8 @@ private:
     int SPTypicalLength;		// typical size of the width or height for a SP
 
     int* labels = nullptr;
-    int* previous_labels;
+    int* looking_area;
+    int* count_looking_area;
 
     float* Xseeds;
     float* Yseeds;
@@ -138,11 +121,7 @@ private:
     float* avec;
     float* bvec;
 
-    float* bis_lvec;
-    float* bis_avec;
-    float* bis_bvec;
-
-    float* labMeanSeeds;
+    float* inv;
 
     bool bis_buffer;
 

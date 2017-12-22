@@ -143,8 +143,6 @@ int main( int argc, char* argv[] )
 {
     printf(" - Iterative Boundary Identification Segmentation - \n\n");
 
-    //printf( " omp threads : %i \n", omp_get_max_threads() );
-
     int K;
     int compa;
 
@@ -165,27 +163,17 @@ int main( int argc, char* argv[] )
 
     }
 
-    //K = 200;
-    //compa = 50;
-    //char* file_path = "16004.jpg";
-
     // IBIS
     IBIS Super_Pixel( K, compa );
 
     // get picture
     cv::Mat img = cv::imread( argv[ 3 ] );
-    //cv::Mat img = cv::imread( file_path );
 
     // process IBIS
     Super_Pixel.process( &img );
 
     // convert int* labels to Mat* labels in gray scale
-    cv::Mat labels_mat = cv::Mat( img.rows, img.cols, CV_8UC1 );
     int* labels = Super_Pixel.getLabels();
-    /*for( int i=0; i < img.rows*img.cols; i++ ) {
-        labels_mat.ptr()[ i ] = labels[ i ];
-
-    }*/
 
     const int width = img.cols;
     const int height = img.rows;
@@ -208,6 +196,7 @@ int main( int argc, char* argv[] )
     outfile.close();
 
     IplImage* output_bounds_alpha = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 4);
+
     IplImage* output_bounds = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 3);
     unsigned int* ubuff = (unsigned int*)output_bounds_alpha->imageData;
     DrawContoursAroundSegments(ubuff, labels, width, height, color);
@@ -219,8 +208,6 @@ int main( int argc, char* argv[] )
     cvSaveImage(output_boundaries_name.c_str(), output_bounds);
 
     cvReleaseImage(&output_bounds_alpha);
-    //cvReleaseImage(&input);
-    //cvReleaseImage(&input_alpha);
     cvReleaseImage(&output_bounds);
 
     // print computation times
@@ -231,27 +218,5 @@ int main( int argc, char* argv[] )
     printf( " --> Computation time : Post processing  : \t %lf \t ms \n", post_processing_time );
     printf( " --> Computation time : total            : \t %lf \t ms \n", ( post_processing_time + computation_time ) );
     printf( " --> Pixels processed : total            : \t %lf \t \% \n", Super_Pixel.get_complexity()*100 );
-
-
-    /*for( int i=0; i < img.rows*img.cols; i++ ) {
-        labels_mat.ptr()[ i ] = labels[ i ];
-
-    }
-
-    // save labels decomposition
-    cv::imwrite( "labels.ppm", labels_mat );
-
-    // print computation times
-    float computation_time = Super_Pixel.getComputationTime();
-    float post_processing_time = Super_Pixel.getPostProcessingTime();
-
-    printf( " --> Computation time : IBIS             : \t %lf \t ms \n", computation_time );
-    printf( " --> Computation time : Post processing  : \t %lf \t ms \n", post_processing_time );
-    printf( " --> Computation time : total            : \t %lf \t ms \n", ( post_processing_time + computation_time ) );
-
-    char command[ 1024 ];
-    long pid = ( long ) getpid(); // use long to ensure correct format specifier
-    sprintf( command, "pmap %ld > pmap_log.txt", pid );
-    system( command );*/
 
 }
