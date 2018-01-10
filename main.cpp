@@ -23,41 +23,6 @@ void DrawContoursAroundSegments(
     const int dx8[8] = {-1, -1,  0,  1, 1, 1, 0, -1};
     const int dy8[8] = { 0, -1, -1, -1, 0, 1, 1,  1};
 
-/*	int sz = width*height;
-
-    vector<bool> istaken(sz, false);
-
-    int mainindex(0);
-    for( int j = 0; j < height; j++ )
-    {
-        for( int k = 0; k < width; k++ )
-        {
-            int np(0);
-            for( int i = 0; i < 8; i++ )
-            {
-                int x = k + dx8[i];
-                int y = j + dy8[i];
-
-                if( (x >= 0 && x < width) && (y >= 0 && y < height) )
-                {
-                    int index = y*width + x;
-
-                    if( false == istaken[index] )//comment this to obtain internal contours
-                    {
-                        if( labels[mainindex] != labels[index] ) np++;
-                    }
-                }
-            }
-            if( np > 1 )//change to 2 or 3 for thinner lines
-            {
-                ubuff[mainindex] = color;
-                istaken[mainindex] = true;
-            }
-            mainindex++;
-        }
-    }*/
-
-
     int sz = width*height;
     vector<bool> istaken(sz, false);
     vector<int> contourx(sz);vector<int> contoury(sz);

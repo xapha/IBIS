@@ -8,7 +8,7 @@
 #include <thread>
 
 #define RENDER_SP_CONTOURS  0
-#define THREAD_count        8
+#define THREAD_count        2
 #define size_roi            9 //9 25 49
 
 class IBIS

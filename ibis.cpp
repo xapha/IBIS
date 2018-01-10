@@ -332,8 +332,12 @@ int IBIS::assign_px( int y, int x, int index_xy, int* unique_angular, int index_
     count_px_processed++;
 
     for( int i=0; i<size_roi; i++ ) {
-//    for( i=0; i<index_unique; i++ ) {
         index_sp = adjacent_sp[ size_roi*initial_repartition[index_xy] + i ];
+    /*for( int i=0; i<index_unique; i++ ) {
+        if( index_unique == 4 )
+            index_sp = unique_angular[ i ];
+        else
+            index_sp = adjacent_sp[ size_roi*initial_repartition[index_xy] + i ];*/
 
 //        index_sp = unique_angular[ i ];
         if( index_sp >= 0 && index_sp < SPNumber) {
@@ -382,6 +386,23 @@ void IBIS::assign_last( int y, int x, int x_min, int x_max, int y_min, int y_max
     int index_xy;
     int value;
     int index_y;
+
+    // test pattern for smart filling
+    /*if( y - 1 < height && x < width )
+        labels[ vertical_index[ y - 1 ] + x ] = ( unique_angular[0] == unique_angular[1] ) ? unique_angular[0] : assign_px( y-1, x, vertical_index[y-1] + x, unique_angular, index_unique );
+
+    if( y + 1 < height && x < width )
+        labels[ vertical_index[ y + 1 ] + x ] = ( unique_angular[2] == unique_angular[3] ) ? unique_angular[2] : assign_px( y+1, x, vertical_index[y+1] + x, unique_angular, index_unique );
+
+    if( y < height && x - 1 < width )
+        labels[ vertical_index[ y ] + x - 1 ] = ( unique_angular[0] == unique_angular[2] ) ? unique_angular[0] : assign_px( y, x-1, vertical_index[y] + x-1, unique_angular, index_unique );
+
+    if( y < height && x + 1 < width )
+        labels[ vertical_index[ y ] + x + 1 ] = ( unique_angular[1] == unique_angular[3] ) ? unique_angular[1] : assign_px( y, x+1, vertical_index[y] + x+1, unique_angular, index_unique );
+
+    if( y < height && x < width )
+        labels[ vertical_index[y] + x ] = assign_px( y, x, vertical_index[y] + x, unique_angular, index_unique );*/
+
 
     for( int index_var_y = y_min; index_var_y <= y_max; index_var_y++ ) {
         j = y + index_var_y;
@@ -459,7 +480,10 @@ bool IBIS::angular_assign( int mask_index, int y, int x, int* angular, int* uniq
             if( angular[ 0 ] != angular[ index_angular ] ) {
                 unique_borders = false;
 
-                return unique_borders;
+                if( mask_index > 0 )
+                    return unique_borders;
+                else
+                    angular[ index_angular ] = -1;
 
             }
 
@@ -479,7 +503,7 @@ void IBIS::apply_mask( int y, int x, int mask_index ) {
     int limit_value;
 
     int* angular = new int[ mask_buffer[ mask_index ].size ];
-    int* unique_angular = new int[ 20 ];
+    int* unique_angular = new int[ size_roi ];
     int index_unique = 0;
 
     // identify possible seeds assignement
@@ -501,7 +525,7 @@ void IBIS::apply_mask( int y, int x, int mask_index ) {
     }
     st1 += now_ms() - lap;*/
 
-    if( angular_assign( mask_index, y, x, angular, unique_angular, index_unique ) ) {
+    if( angular_assign( mask_index, y, x, angular, unique_angular, size_roi ) ) {
         limit_value = ( mask_size[ mask_index ] - 1 )/2;
 
         if( x - limit_value < width && y - limit_value < height ) {
@@ -516,7 +540,7 @@ void IBIS::apply_mask( int y, int x, int mask_index ) {
     }
     else {
         if( mask_index == 0 ) {
-            assign_last( y, x, -1, 1, -1, 1, unique_angular, index_unique );
+            assign_last( y, x, -1, 1, -1, 1, angular, 4 );
 
         }
 
@@ -530,8 +554,6 @@ void IBIS::apply_mask( int y, int x, int mask_index ) {
 double IBIS::now_ms(void)
 {
     double milliseconds_since_epoch = (double) (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
-    //double milliseconds_since_epoch = (double)(std::chrono::high_resolution_clock::now().time_since_epoch() / std::chrono::milliseconds(1));
-    //or double milliseconds_since_epoch = (double) (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     return milliseconds_since_epoch;
 
 }
@@ -627,6 +649,11 @@ void IBIS::enforceConnectivity()
 void IBIS::mask_propagate_SP() {
 
     int step;
+    int count_mask;
+
+    int* x_mask = new int[ size ];
+    int* y_mask = new int[ size ];
+
     for( int mask_index=index_mask-1; mask_index>=0; mask_index--) {
 
         y_limit = height + mask_size[ mask_index ];
@@ -637,28 +664,52 @@ void IBIS::mask_propagate_SP() {
         else
             step = mask_size[ mask_index ] - 1;
 
+        count_mask = 0;
 
+        // create list of execution
 #if THREAD_count > 1
-#pragma omp parallel for
+#pragma omp parallel for num_threads(8)
 #endif
         for( int y=start_xy[ mask_index ]; y<y_limit; y+=step ) { // splitted loop
             for( int x=start_xy[ mask_index ]; x<x_limit; x+=step ) {
 
                 if( y < height && x < width ) {
-                    if( labels[ vertical_index[ y ] + x ] < 0 )
-                        apply_mask( y, x, mask_index );
+                    if( labels[ vertical_index[ y ] + x ] < 0 ) {
+                        x_mask[ count_mask ] = x;
+                        y_mask[ count_mask ] = y;
+                        count_mask++;
+
+                        //apply_mask( y, x, mask_index );
+
+                    }
 
                 }
-                else
-                    apply_mask( y, x, mask_index );
+                else {
+                    x_mask[ count_mask ] = x;
+                    y_mask[ count_mask ] = y;
+                    count_mask++;
+
+                    //apply_mask( y, x, mask_index );
+
+                }
 
             }
 
         }
 
+/*#if THREAD_count > 1
+#pragma omp parallel for num_threads(8)
+#endif*/
+        for( int i=0; i<count_mask; i++ )
+            apply_mask( y_mask[i], x_mask[i], mask_index );
+
+
         mean_seeds();
 
     }
+
+    delete[] x_mask;
+    delete[] y_mask;
 
 }
 
