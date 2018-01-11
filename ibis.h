@@ -8,7 +8,7 @@
 #include <thread>
 
 #define RENDER_SP_CONTOURS  0
-#define THREAD_count        2
+#define THREAD_count        4
 #define size_roi            9 //9 25 49
 
 class IBIS
@@ -43,7 +43,6 @@ protected:
     int assign_px( int y, int x, int index_xy, int* unique_angular, int index_unique  );
     double now_ms(void);
     void enforceConnectivity();
-    void get_looking_area();
 
 private:
 

@@ -27,6 +27,7 @@ void DrawContoursAroundSegments(
     vector<bool> istaken(sz, false);
     vector<int> contourx(sz);vector<int> contoury(sz);
     int mainindex(0);int cind(0);
+
     for( int j = 0; j < height; j++ )
     {
         for( int k = 0; k < width; k++ )
@@ -72,7 +73,8 @@ void DrawContoursAroundSegments(
             if( (x >= 0 && x < width) && (y >= 0 && y < height) )
             {
                 int ind = y*width + x;
-                if(!istaken[ind]) ubuff[ind] = 0;
+                if(!istaken[ind])
+                    ubuff[ind] = 0;
             }
         }
     }
@@ -161,7 +163,7 @@ int main( int argc, char* argv[] )
     outfile.close();
 
     IplImage* output_bounds_alpha = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 4);
-
+    cvSet(output_bounds_alpha, cvScalar(0,0,0,0));
     IplImage* output_bounds = cvCreateImage(cvSize(width, height), IPL_DEPTH_8U, 3);
     unsigned int* ubuff = (unsigned int*)output_bounds_alpha->imageData;
     DrawContoursAroundSegments(ubuff, labels, width, height, color);

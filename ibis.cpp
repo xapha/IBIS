@@ -144,31 +144,6 @@ void IBIS::generate_mask() {
 
 }
 
-void IBIS::get_looking_area() {
-    double dist_xy;
-
-    for( int y=0; y < height; y++ ) {
-        for( int x=0; x< width; x++ ) {
-            count_looking_area[ y*width + x ]=0;
-
-            for( int index_sp = 0; index_sp < SPNumber; index_sp++ ) {
-                dist_xy = (x - Xseeds[index_sp])*(x - Xseeds[index_sp]) +
-                          (y - Yseeds[index_sp])*(y - Yseeds[index_sp]);
-
-                if(dist_xy < max_xy_dist) {
-                    looking_area[ (count_looking_area[ y*width + x ] * size) + (y*width + x ) ] = index_sp;
-                    count_looking_area[ y*width + x ]++;
-
-                }
-
-            }
-
-        }
-
-    }
-
-}
-
 void IBIS::initSeeds() {
     const bool hexgrid = false;
     int n;
@@ -333,13 +308,7 @@ int IBIS::assign_px( int y, int x, int index_xy, int* unique_angular, int index_
 
     for( int i=0; i<size_roi; i++ ) {
         index_sp = adjacent_sp[ size_roi*initial_repartition[index_xy] + i ];
-    /*for( int i=0; i<index_unique; i++ ) {
-        if( index_unique == 4 )
-            index_sp = unique_angular[ i ];
-        else
-            index_sp = adjacent_sp[ size_roi*initial_repartition[index_xy] + i ];*/
 
-//        index_sp = unique_angular[ i ];
         if( index_sp >= 0 && index_sp < SPNumber) {
 
             dist_x = Xseeds[ index_sp ] - x;
@@ -386,23 +355,6 @@ void IBIS::assign_last( int y, int x, int x_min, int x_max, int y_min, int y_max
     int index_xy;
     int value;
     int index_y;
-
-    // test pattern for smart filling
-    /*if( y - 1 < height && x < width )
-        labels[ vertical_index[ y - 1 ] + x ] = ( unique_angular[0] == unique_angular[1] ) ? unique_angular[0] : assign_px( y-1, x, vertical_index[y-1] + x, unique_angular, index_unique );
-
-    if( y + 1 < height && x < width )
-        labels[ vertical_index[ y + 1 ] + x ] = ( unique_angular[2] == unique_angular[3] ) ? unique_angular[2] : assign_px( y+1, x, vertical_index[y+1] + x, unique_angular, index_unique );
-
-    if( y < height && x - 1 < width )
-        labels[ vertical_index[ y ] + x - 1 ] = ( unique_angular[0] == unique_angular[2] ) ? unique_angular[0] : assign_px( y, x-1, vertical_index[y] + x-1, unique_angular, index_unique );
-
-    if( y < height && x + 1 < width )
-        labels[ vertical_index[ y ] + x + 1 ] = ( unique_angular[1] == unique_angular[3] ) ? unique_angular[1] : assign_px( y, x+1, vertical_index[y] + x+1, unique_angular, index_unique );
-
-    if( y < height && x < width )
-        labels[ vertical_index[y] + x ] = assign_px( y, x, vertical_index[y] + x, unique_angular, index_unique );*/
-
 
     for( int index_var_y = y_min; index_var_y <= y_max; index_var_y++ ) {
         j = y + index_var_y;
@@ -475,15 +427,11 @@ bool IBIS::angular_assign( int mask_index, int y, int x, int* angular, int* uniq
 
             }
 
-
             // check angular values
             if( angular[ 0 ] != angular[ index_angular ] ) {
                 unique_borders = false;
 
-                if( mask_index > 0 )
-                    return unique_borders;
-                else
-                    angular[ index_angular ] = -1;
+                return unique_borders;
 
             }
 
@@ -509,21 +457,6 @@ void IBIS::apply_mask( int y, int x, int mask_index ) {
     // identify possible seeds assignement
     float dist_x, dist_y;
     index_unique = 0;
-
-    /*double lap = now_ms();
-    for( int index_sp = 0; index_sp < SPNumber; index_sp++ ) {
-
-        dist_x = Xseeds[ index_sp ] - x;
-        dist_y = Yseeds[ index_sp ] - y;
-
-        if( ( dist_x * dist_x + dist_y * dist_y ) < max_xy_dist ) {
-            unique_angular[ index_unique ] = index_sp;
-            index_unique++;
-
-        }
-
-    }
-    st1 += now_ms() - lap;*/
 
     if( angular_assign( mask_index, y, x, angular, unique_angular, size_roi ) ) {
         limit_value = ( mask_size[ mask_index ] - 1 )/2;
@@ -667,9 +600,6 @@ void IBIS::mask_propagate_SP() {
         count_mask = 0;
 
         // create list of execution
-#if THREAD_count > 1
-#pragma omp parallel for num_threads(8)
-#endif
         for( int y=start_xy[ mask_index ]; y<y_limit; y+=step ) { // splitted loop
             for( int x=start_xy[ mask_index ]; x<x_limit; x+=step ) {
 
@@ -679,8 +609,6 @@ void IBIS::mask_propagate_SP() {
                         y_mask[ count_mask ] = y;
                         count_mask++;
 
-                        //apply_mask( y, x, mask_index );
-
                     }
 
                 }
@@ -689,20 +617,18 @@ void IBIS::mask_propagate_SP() {
                     y_mask[ count_mask ] = y;
                     count_mask++;
 
-                    //apply_mask( y, x, mask_index );
-
                 }
 
             }
 
         }
 
-/*#if THREAD_count > 1
-#pragma omp parallel for num_threads(8)
-#endif*/
+#if THREAD_count > 1
+#pragma omp parallel for num_threads(THREAD_count)
+#endif
+
         for( int i=0; i<count_mask; i++ )
             apply_mask( y_mask[i], x_mask[i], mask_index );
-
 
         mean_seeds();
 
