@@ -36,11 +36,11 @@ protected:
     void mask_propagate_SP();
     void mean_seeds();
     void generate_mask();
-    bool angular_assign( int mask_index, int y, int x, int* angular, int* unique_angular, int index_unique );
+    bool angular_assign(int mask_index, int y, int x, int *angular);
     void fill_mask(int x_min, int x_max, int y_min, int y_max, int value);
-    void assign_last( int y, int x, int x_min, int x_max, int y_min, int y_max, int* unique_angular, int index_unique );
+    void assign_last(int y, int x);
     void apply_mask( int y, int x, int mask_index );
-    int assign_px( int y, int x, int index_xy, int* unique_angular, int index_unique  );
+    int assign_px(int y, int x, int index_xy);
     double now_ms(void);
     void enforceConnectivity();
 
@@ -83,6 +83,7 @@ private:
     int* unique_parent;
     bool* updated_px;
     int* adjacent_sp;
+    int* count_adjacent;
     int* initial_repartition;
     //int index_unique;
 
