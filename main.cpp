@@ -177,13 +177,4 @@ int main( int argc, char* argv[] )
     cvReleaseImage(&output_bounds_alpha);
     cvReleaseImage(&output_bounds);
 
-    // print computation times
-    float computation_time = Super_Pixel.getComputationTime();
-    float post_processing_time = Super_Pixel.getPostProcessingTime();
-
-    printf( " --> Computation time : IBIS             : \t %lf \t ms \n", computation_time );
-    printf( " --> Computation time : Post processing  : \t %lf \t ms \n", post_processing_time );
-    printf( " --> Computation time : total            : \t %lf \t ms \n", ( post_processing_time + computation_time ) );
-    printf( " --> Pixels processed : total            : \t %lf \t \% \n", Super_Pixel.get_complexity()*100 );
-
 }

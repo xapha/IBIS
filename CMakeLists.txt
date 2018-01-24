@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD 14)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 set(sourceList
+    utils.cpp
     ibis.cpp
     main.cpp
 
@@ -23,6 +24,7 @@ set(sourceList
 
 set(headerList
     ibis.h
+    utils.h
 
 )
 

@@ -6,20 +6,29 @@
 #include <omp.h>
 #include <atomic>
 #include <thread>
+#include "utils.h"
 
-#define RENDER_SP_CONTOURS  0
-#define THREAD_count        4
-#define size_roi            9 //9 25 49
+// algo debug parameters
+#define THREAD_count        4       // deactivate if <= 1
+#define size_roi            9       // 9 25 49 : consider adjacent seeds for pixels assignation
+#define MATLAB_lab          0       // 0=>RGB2LAB : l,a,b -> 0-255. 1=>RGB2LAB : l -> 0-100; a,b -> -127:127
+#define MASK_chrono         1       // 0:1 for evaluation purpose : slow down the process !
+#define VISU                1       // show processed pixels for each iterations
+#define VISU_all            0       // for mask by mask visu of the processing : THREAD_count = 0, very slow
+#define OUTPUT_log          1       // 0:1 print output log
 
 class IBIS
 {
 
 public:
+    friend class MASK;
 
     IBIS(int maxSPNum, int compacity);
     virtual ~IBIS();
 
     void process( cv::Mat* img );
+    void init();
+    void reset();
 
     int getMaxSPNumber() { return maxSPNumber;}
     int getActualSPNumber() { return SPNumber; }
@@ -28,129 +37,119 @@ public:
     float getPostProcessingTime() { return st4; }
     int* getLabels() { return labels; }
 
-    float get_complexity() { return count_px_processed / size; }
+    float get_complexity();
 
 protected:
-
+    void getLAB(cv::Mat *img);
     void initSeeds();
     void mask_propagate_SP();
     void mean_seeds();
-    void generate_mask();
-    bool angular_assign(int mask_index, int y, int x, int *angular);
-    void fill_mask(int x_min, int x_max, int y_min, int y_max, int value);
-    void assign_last(int y, int x);
-    void apply_mask( int y, int x, int mask_index );
-    int assign_px(int y, int x, int index_xy);
+
     double now_ms(void);
     void enforceConnectivity();
 
 private:
 
-    struct Mask {
+    class MASK {
+
+    private:
         int* x_var;
         int* y_var;
-        int* angular;
+        int* xy_var;
+        int* last_px_x;
+        int* last_px_y;
+        int* last_px_xy;
+        int* last_parent;
+
+        int count_var;
+        int count_last;
+        int count_last_parent;
+
+        int* limit_value_fill;
+
+        int x;
+        int y;
         int size;
-        int index_angular;
+        int mask_index;
+        int angular;
+        bool filled;
+        MASK* sub_mask;
+        IBIS* IBIS_data;
 
-        void Mask_init( int size_in ) {
-            x_var = new int[ size_in ];
-            y_var = new int[ size_in ];
-            angular = new int[ size_in ];
-            size = size_in;
+        void generate_mask();
 
-        }
-
-        ~Mask() {
-            delete[] x_var;
-            delete[] y_var;
-            delete[] angular;
+    public:
+        MASK() {
 
         }
+        ~MASK();
+
+        void init(int size_in, int y_in, int x_in , int mask_level, IBIS *ptr_IBIS);
+        void reset();
+        void process( int mask_level );
+        int assign_px(int y, int x, int index_xy);
+        int assign_last_px(int y, int x, int index_xy);
+        void assign_last();
+        void fill_mask();
+        bool angular_assign();
+        void assign_labels( int x, int y, int index_xy, int value );
 
     };
 
-    std::thread* thread_buff;
-    int* vertical_index;
-    int* adj_label;
-    Mask* mask_buffer;
-    int TPSP_type;
-    bool iterate_FLAG;
-    bool splitting_FLAG;
-    int* mask_size;
-    int* start_xy;
-    int index_mask;
-    int* unique_parent;
-    bool* updated_px;
-    int* adjacent_sp;
-    int* count_adjacent;
-    int* initial_repartition;
-    //int index_unique;
-
-    float count_px_processed;
-
-    int* x_vec;
-    int* y_vec;
-
-    int y_limit;
-    int x_limit;
-
-    int nb_iteration;
-    float max_xy_dist;
-
-    // V.1
-    int count_reset;
+    // input parameters
     int size;
     int width;
     int height;
 
-    int SPNumber;			// number of Sp actually created
+    // internals buffer
+    int* vertical_index;
+    MASK* mask_buffer;
+    int* mask_size;
+    int* adjacent_sp;
+    int* count_adjacent;
+    int* initial_repartition;
+    int* processed;
+    int* x_vec;
+    int* y_vec;
+    int* labels;
+    float* inv;
+    float* Xseeds_Sum;
+    float* Yseeds_Sum;
+    float* lseeds_Sum;
+    float* aseeds_Sum;
+    float* bseeds_Sum;
+    float* countPx;
+
+    // inner parameter
+    int count_mask;
+    int start_xy;
+    int index_mask;
+    int y_limit;
+    int x_limit;
+    float invwt;
+    int minSPSizeThreshold;
+
+    int SPNumber;               // number of Sp actually created
     int SPTypicalLength;		// typical size of the width or height for a SP
+    int compacity;              // compacity factor
+    int maxSPNumber;            // number of Sp passed by user
 
-    int* labels = nullptr;
-    int* looking_area;
-    int* count_looking_area;
-
+    // seeds value
     float* Xseeds;
     float* Yseeds;
     float* lseeds;
     float* aseeds;
     float* bseeds;
 
+    // image data
     float* lvec;
     float* avec;
     float* bvec;
 
-    float* inv;
-
-    bool bis_buffer;
-
-    float* Xseeds_Sum;
-    float* Yseeds_Sum;
-    float* lseeds_Sum;
-    float* aseeds_Sum;
-    float* bseeds_Sum;
-
-    float* countPx;
-    float invwt;
-    int* index_propagation;
-    bool* elligible;
-    float* count_diff;
-
-    bool creation_deletion_FLAG;
-    cv::Mat1b contourMask;
-    float sensitivity;            // % of SP that needs to appear changed to be updated
-    int inertia;                  // min || [ L, a, b ] || value to consider changes
-
-    int minSPSizeThreshold;
-    int compacity;                      // compacity factor
-    int maxSPNumber;			// number of Sp passed by user
-
-// RENDER_SNR_VALUES
-
 public:
     double slicTime;
     double st1, st2, st3, st4, st5, st6;
+    double Mt1, Mt2, Mt3, Mt4;
 
     int slicNum;
     int selectedSp = -1;		// Rq : -1 is used in labels for pixels that are not included in any superpixel.

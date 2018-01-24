@@ -1,8 +1,10 @@
 #include "ibis.h"
 
 IBIS::IBIS(int _maxSPNum, int _compacity ) : slicTime(0.), slicNum(0) {
+    labels = nullptr;
     maxSPNumber = _maxSPNum;
     compacity = _compacity;
+    size = 0;
 
     // memory allocation
     Xseeds = new float[maxSPNumber];
@@ -18,9 +20,7 @@ IBIS::IBIS(int _maxSPNum, int _compacity ) : slicTime(0.), slicNum(0) {
     bseeds_Sum = new float[maxSPNumber];
 
     countPx = new float[maxSPNumber];
-    count_diff = new float[maxSPNumber];
 
-    elligible = new bool[maxSPNumber];
     inv = new float[maxSPNumber];
     adjacent_sp = new int[size_roi*maxSPNumber];
     count_adjacent = new int[maxSPNumber];
@@ -48,101 +48,16 @@ IBIS::~IBIS() {
 
     delete[] countPx;
 
-    delete[] elligible;
-    delete[] count_diff;
-    delete[] index_propagation;
     delete[] mask_buffer;
     delete[] mask_size;
-    delete[] start_xy;
-    delete[] unique_parent;
-    delete[] updated_px;
     delete[] x_vec;
     delete[] y_vec;
-    delete[] adj_label;
     delete[] vertical_index;
-    delete[] looking_area;
-    delete[] count_looking_area;
 
     delete[] adjacent_sp;
     delete[] count_adjacent;
     delete[] initial_repartition;
-
-}
-
-void IBIS::generate_mask() {
-    mask_buffer = new Mask[ index_mask ];
-    int limit_val, vertical_val;
-    int value_assign;
-
-    for( int k=0; k<index_mask; k++ ) {
-        int table_index = 0;
-        mask_buffer[ k ].Mask_init( pow(2.0, k+2) );
-
-        if( k > 0 ) {
-            limit_val = mask_size[ k - 1 ] - 1;
-            vertical_val = -limit_val;
-
-            for( int index_var=1; index_var <= mask_size[ k ]; index_var++ ) {
-                if( index_var == 1 ) { //top border
-
-                    value_assign = -limit_val;
-                    for( int i=table_index; i<=table_index+limit_val; i++ ) {
-                        mask_buffer[ k ].x_var[ i ] = value_assign;
-                        mask_buffer[ k ].y_var[ i ] = vertical_val;
-
-                        value_assign += 2;
-                    }
-
-                    table_index += limit_val + 1;
-                    vertical_val += 2;
-
-                }
-                else if( index_var > 1 && index_var < mask_size[ k - 1 ] ) { // vertical border
-
-                    value_assign = -limit_val;
-                    for( int i=table_index; i<table_index+2; i++ ) {
-                        mask_buffer[ k ].x_var[ i ] = value_assign;
-                        mask_buffer[ k ].y_var[ i ] = vertical_val;
-
-                        value_assign = limit_val;
-                    }
-
-                    table_index += 2;
-                    vertical_val += 2;
-
-                }
-                else { // bot border
-
-                    value_assign = -limit_val;
-                    for( int i=table_index; i<=table_index+limit_val; i++ ) {
-                        mask_buffer[ k ].x_var[ i ] = value_assign;
-                        mask_buffer[ k ].y_var[ i ] = limit_val;
-
-                        value_assign += 2;
-                    }
-
-                }
-
-            }
-
-        }
-        else {
-
-            mask_buffer[ k ].x_var[ 0 ] = -1;
-            mask_buffer[ k ].y_var[ 0 ] = -1;
-
-            mask_buffer[ k ].x_var[ 1 ] = 1;
-            mask_buffer[ k ].y_var[ 1 ] = -1;
-
-            mask_buffer[ k ].x_var[ 2 ] = -1;
-            mask_buffer[ k ].y_var[ 2 ] = 1;
-
-            mask_buffer[ k ].x_var[ 3 ] = 1;
-            mask_buffer[ k ].y_var[ 3 ] = 1;
-
-        }
-
-    }
+    delete[] processed;
 
 }
 
@@ -266,36 +181,6 @@ void IBIS::initSeeds() {
 }
 
 void IBIS::mean_seeds() {
-    memset( lseeds_Sum, 0, sizeof( float ) * maxSPNumber );
-    memset( aseeds_Sum, 0, sizeof( float ) * maxSPNumber );
-    memset( bseeds_Sum, 0, sizeof( float ) * maxSPNumber );
-    memset( Xseeds_Sum, 0, sizeof( float ) * maxSPNumber );
-    memset( Yseeds_Sum, 0, sizeof( float ) * maxSPNumber );
-    std::fill( countPx, countPx + maxSPNumber , 0 );
-
-    int current_sp;
-    int i;
-
-    for(int y=0; y<height; y++) {
-        for(int x=0; x<width; x++) {
-            // current index
-            i = vertical_index[ y ] + x;
-            current_sp = labels[ i ];
-
-            if( current_sp > 0 ) {
-                lseeds_Sum[ current_sp ] += lvec[ i ] ;
-                aseeds_Sum[ current_sp ] += avec[ i ] ;
-                bseeds_Sum[ current_sp ] += bvec[ i ] ;
-
-                Xseeds_Sum[ current_sp ] += x;
-                Yseeds_Sum[ current_sp ] += y;
-                countPx[ current_sp ]++;
-
-            }
-
-        }
-
-    }
 
     for( int i=0; i<SPNumber; i++ ) {
         inv[ i ] = 1.f / countPx[ i ];
@@ -315,163 +200,15 @@ void IBIS::mean_seeds() {
 
 }
 
-int IBIS::assign_px( int y, int x, int index_xy ) {
-    int best_sp = -1;
-    float dist_xy, dist_x, dist_y;
-    float l, a, b;
-    float dist_lab;
-    int index_sp;
-    float D=-1.f;
-    float total_dist;
-
-    count_px_processed++;
-
-    for( int i=0; i<count_adjacent[initial_repartition[index_xy]]; i++ ) {
-        index_sp = adjacent_sp[ size_roi*initial_repartition[index_xy] + i ];
-
-        dist_x = Xseeds[ index_sp ] - x;
-        dist_y = Yseeds[ index_sp ] - y;
-
-        dist_xy = dist_x * dist_x + dist_y * dist_y;
-
-        l = lvec[ index_xy ];
-        a = avec[ index_xy ];
-        b = bvec[ index_xy ];
-
-        dist_lab = ( l - lseeds[ index_sp ]) * ( l - lseeds[ index_sp ]) +
-                   ( a - aseeds[ index_sp ]) * ( a - aseeds[ index_sp ]) +
-                   ( b - bseeds[ index_sp ]) * ( b - bseeds[ index_sp ]);
-
-        dist_xy = ( x - Xseeds[ index_sp ] ) * ( x - Xseeds[ index_sp ] ) +
-                  ( y - Yseeds[ index_sp ] ) * ( y - Yseeds[ index_sp ] );
-
-
-        total_dist = dist_lab + dist_xy * invwt;
-
-        if( total_dist < D || D < 0) {
-            best_sp = index_sp;
-            D = total_dist;
-
-        }
+float IBIS::get_complexity() {
+    int count_px_processed = 0;
+    for( int i=0; i<size; i++ ) {
+        if( processed[ i ] )
+            count_px_processed++;
 
     }
 
-    return best_sp;
-}
-
-void IBIS::assign_last( int y, int x ) {
-
-    int j, k;
-    int index_xy;
-    int value;
-    int index_y;
-
-    for( int index_var_y = -1; index_var_y <= 1; index_var_y++ ) {
-        j = y + index_var_y;
-        index_y = vertical_index[ j ];
-
-        for( int index_var_x = -1; index_var_x <= 1; index_var_x++ ) {
-            k = x + index_var_x;
-            index_xy = index_y + k;
-
-            if( j < height && k < width ) {
-                if( labels[ index_xy ] < 0 ) {
-                    // assign px
-                    value = assign_px( j, k, index_xy );
-
-                    labels[ index_xy ] = value;
-
-                }
-
-            }
-
-        }
-
-    }
-
-}
-
-void IBIS::fill_mask( int x_min, int x_max, int y_min, int y_max, int value ) {
-
-    int j;
-    int index_y;
-
-    for( int index_var_y = y_min; index_var_y <= y_max; index_var_y++ ) {
-        j = index_var_y;
-        index_y = vertical_index[ index_var_y ]; //index_var_y*width;
-
-        std::fill( labels + index_y + x_min, labels + index_y + x_max, value );
-        std::fill( initial_repartition + index_y + x_min, initial_repartition + index_y + x_max, value );
-
-    }
-
-}
-
-bool IBIS::angular_assign( int mask_index, int y, int x, int* angular ) {
-    int j, k;
-    int best_sp;
-    int index_xy;
-    bool first=true;
-
-    for( int index_var=0; index_var < mask_buffer[ mask_index ].size; index_var++ ) {
-        j = y + mask_buffer[ mask_index ].y_var[ index_var ];
-        k = x + mask_buffer[ mask_index ].x_var[ index_var ];
-
-        if( j < height && k < width ) {
-            index_xy = vertical_index[ j ] + k;
-
-            if( labels[ index_xy ] < 0 ) {
-                // assign px
-                best_sp = assign_px( j, k, index_xy );
-
-                if( first ) {
-                    *angular = best_sp;
-                    first = false;
-                }
-
-                if( mask_index == 0 )
-                    labels[ index_xy ] = best_sp;
-
-            }
-            else if( first ) {
-                *angular = labels[ index_xy ];
-                first = false;
-            }
-
-            if( best_sp != *angular && !first )
-                return false;
-
-        }
-
-    }
-
-    return true;
-
-}
-
-void IBIS::apply_mask( int y, int x, int mask_index ) {
-
-    int limit_value;
-    int angular=-1;
-
-    if( angular_assign( mask_index, y, x, &angular ) ) {
-        limit_value = ( mask_size[ mask_index ] - 1 )/2;
-
-        if( x - limit_value < width && y - limit_value < height ) {
-            fill_mask( ( x - limit_value < 0 ) ? 0 : x - limit_value ,
-                       ( x + limit_value >= width ) ? width - 1 : x + limit_value ,
-                       ( y - limit_value < 0 ) ? 0 : y - limit_value,
-                       ( y + limit_value >= height ) ? height - 1 : y + limit_value,
-                        angular );
-
-        }
-
-    }
-    else {
-        if( mask_index == 0 )
-            assign_last( y, x );
-
-    }
+    return count_px_processed / size;
 
 }
 
@@ -570,43 +307,308 @@ void IBIS::enforceConnectivity()
 
 }
 
+void IBIS::init() {
+    int ii, step;
+
+    // image lab buffer
+    avec = new float[size];
+    bvec = new float[size];
+    lvec = new float[size];
+
+    //store mean distance between 2 seeds info
+    SPTypicalLength = (int)(std::sqrt((float)(size) / (float)(maxSPNumber))) + 1;
+
+    // compacity weight
+    invwt = (float)SPTypicalLength / compacity;
+    invwt = 1.0f / (invwt * invwt);
+
+    // inferior limit for superpixels size
+    minSPSizeThreshold = (size / maxSPNumber) / 4;
+
+    // set the top mask size
+    index_mask = 1;
+    while( SPTypicalLength > ( pow( 2.0, index_mask ) + 1 ) )
+        index_mask++;
+    index_mask--;
+
+    // set mask size
+    mask_size = new int[ index_mask ];
+    for( int k=0; k<index_mask; k++ )
+        mask_size[ k ] = pow( 2.0, k+1 ) + 1;
+
+    // center of the first block
+    start_xy = mask_size[ index_mask - 2 ] - 1;
+
+    // enforce connectivity buffer
+    x_vec = new int[ size ];
+    y_vec = new int[ size ];
+
+    // visu the processed pixels
+    processed = new int[ size ];
+    std::fill( processed, processed + size, 0 );
+
+    // precalculate vertical indexes
+    vertical_index = new int[ height + mask_size[ index_mask - 1 ] ];
+    for( int k=0; k < height + mask_size[ index_mask - 1 ]; k++ ) {
+        vertical_index[ k ] = k*width;
+    }
+
+    // output labels buffer
+    labels = new int[size];
+
+    // repartition of pixels at start
+    initial_repartition = new int[size];
+
+    // limit for masks definittion
+    y_limit = height + mask_size[ index_mask-1 ];
+    x_limit = width + mask_size[ index_mask-1 ];
+
+    // create MASKs
+    step = mask_size[ index_mask-1 ];
+    ii=0;
+    for( int y=start_xy; y<y_limit; y+=step ) {
+        for( int x=start_xy; x<x_limit; x+=step ) {
+            ii++;
+
+        }
+
+    }
+
+    count_mask = ii;
+    mask_buffer = new MASK[ ii ];
+    ii=0;
+    for( int y=start_xy; y<y_limit; y+=step ) {
+        for( int x=start_xy; x<x_limit; x+=step ) {
+            mask_buffer[ ii ].init( pow(2.0, index_mask+1), y, x, index_mask-1, this );
+            ii++;
+
+        }
+
+    }
+
+}
+
+void IBIS::reset() {
+#if MASK_chrono
+    Mt1 = 0;
+    Mt2 = 0;
+    Mt3 = 0;
+    Mt4 = 0;
+
+#endif
+
+    st1 = 0;
+    st2 = 0;
+    st3 = 0;
+
+    std::fill( countPx, countPx + maxSPNumber, 0 );
+    std::fill( labels, labels + size, -1 );
+
+    memset( lseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+    memset( aseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+    memset( bseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+    memset( Xseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+    memset( Yseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+
+}
+
+void IBIS::getLAB( cv::Mat* img ) {
+    cv::Mat lab_image;
+    cv::cvtColor(*img, lab_image, CV_BGR2Lab, 0);
+
+    int ii = 0;
+    for (int i = 0; i < size * 3; i += 3) {
+#if MATLAB_lab
+        lvec[ii] = lab_image.ptr()[i] * 100 / 255;
+        avec[ii] = lab_image.ptr()[i + 1] - 128;
+        bvec[ii] = lab_image.ptr()[i + 2] - 128;
+#else
+        lvec[ii] = lab_image.ptr()[i];
+        avec[ii] = lab_image.ptr()[i + 1];
+        bvec[ii] = lab_image.ptr()[i + 2];
+#endif
+        ii++;
+    }
+
+}
+
+void IBIS::process( cv::Mat* img ) {
+    double lap;
+
+    if( size > 0 ) {
+        if( width != img-> cols || width != img->rows ) {
+            size = img->cols * img->rows;
+            width = img->cols;
+            height = img->rows;
+
+            // initialise all the buffer and inner parameters
+            init();
+
+        }
+
+    }
+    else {
+        size = img->cols * img->rows;
+        width = img->cols;
+        height = img->rows;
+
+        // initialise all the buffer and inner parameters
+        init();
+
+    }
+
+    // prepare value to compute a picture
+    reset();
+
+    // STEP 0 : convert to Lab
+    getLAB( img );
+
+    // STEP 1 : initialize with fix grid seeds value
+    initSeeds();
+
+    // STEP 2 : process IBIS
+#if OUTPUT_log
+    lap = now_ms();
+#endif
+
+    mask_propagate_SP();
+
+#if OUTPUT_log
+    st3 = now_ms() - lap;
+#endif
+
+    // STEP 3 : post processing
+#if OUTPUT_log
+    lap = now_ms();
+#endif
+
+    enforceConnectivity();
+
+#if OUTPUT_log
+    st4 = now_ms() - lap;
+#endif
+
+    // output log
+#if OUTPUT_log
+    printf("PERF_T %lf\n", st3+st4);
+    printf("IBIS.process\t\t%lf\t ms\n", st3);
+    printf("IBIS.post_process\t%lf\t ms\n", st4);
+    printf("Pixels processed:\t%lf\t\%\n", get_complexity()*100 );
+
+    #if MASK_chrono
+    printf("-----------------------------------\n");
+    printf("\tMASK.angular_assign()\t\t%lf\n", Mt1/(Mt1+Mt2+Mt3+st2));
+    printf("\tMASK.fill_mask()\t\t%lf\n", Mt2/(Mt1+Mt2+Mt3+st2));
+    printf("\tMASK.assign_last()\t\t%lf\n", Mt3/(Mt1+Mt2+Mt3+st2));
+    printf("\tIBIS.mean_seeds()\t\t%lf\n", st2/(Mt1+Mt2+Mt3+st2));
+
+    #if THREAD_count > 1
+    printf("multi-thread accel:\t\t\t%lf times\n", (Mt1+Mt2+Mt3+st2)/st3);
+    #endif
+
+    #endif
+
+#endif
+
+}
+
 void IBIS::mask_propagate_SP() {
 
-    int step;
-    int count_mask;
-
-    int* x_mask = new int[ size ];
-    int* y_mask = new int[ size ];
+    double lap;
+    st2=0;
 
     for( int mask_index=index_mask-1; mask_index>=0; mask_index--) {
 
-        y_limit = height + mask_size[ mask_index ];
-        x_limit = width + mask_size[ mask_index ];
+#if THREAD_count > 1
+#pragma omp parallel for num_threads(THREAD_count)
+#endif
+        for( int i=0; i<count_mask; i++ ) {
+            mask_buffer[ i ].process( mask_index );
 
-        if( mask_index == index_mask-1 )
-            step = mask_size[ mask_index ];
-        else
-            step = mask_size[ mask_index ] - 1;
+        }
 
-        count_mask = 0;
+#if MASK_chrono
+        lap = now_ms();
+#endif
+        mean_seeds();
+#if MASK_chrono
+        st2 += now_ms() - lap;
+#endif
 
-        // create list of execution
-        for( int y=start_xy[ mask_index ]; y<y_limit; y+=step ) { // splitted loop
-            for( int x=start_xy[ mask_index ]; x<x_limit; x+=step ) {
+#if VISU
+        imagesc( std::string("processed"), processed, width, height );
+        imagesc( std::string("labels"), labels, width, height );
+        cv::waitKey(0);
+#endif
 
-                if( y < height && x < width ) {
-                    if( labels[ vertical_index[ y ] + x ] < 0 ) {
-                        x_mask[ count_mask ] = x;
-                        y_mask[ count_mask ] = y;
-                        count_mask++;
+    }
 
-                    }
+}
 
-                }
-                else {
-                    x_mask[ count_mask ] = x;
-                    y_mask[ count_mask ] = y;
-                    count_mask++;
+// ------------------------------------------------------------------------------- IBIS::MASK
+
+void IBIS::MASK::init( int size_in, int y_in, int x_in, int mask_level, IBIS* ptr_IBIS ) {
+    IBIS_data = ptr_IBIS;
+
+    x_var = new int[ size_in ];
+    y_var = new int[ size_in ];
+    xy_var = new int[ size_in ];
+    limit_value_fill = new int[4];
+    count_last=0;
+
+    size = size_in;
+    mask_index = mask_level;
+
+    x = x_in;
+    y = y_in;
+
+    filled = false;
+    int limit_value = ( IBIS_data->mask_size[ mask_index ] - 1 )/2;
+    limit_value_fill[0] = ( x - limit_value < 0 ) ? 0 : x - limit_value;
+    limit_value_fill[1] = ( x + limit_value >= IBIS_data->width ) ? IBIS_data->width - 1 : x + limit_value;
+    limit_value_fill[2] = ( y - limit_value < 0 ) ? 0 : y - limit_value;
+    limit_value_fill[3] = ( y + limit_value >= IBIS_data->height ) ? IBIS_data->height - 1 : y + limit_value;
+
+    if( mask_index > 0 ) {
+        //generate sub_masks
+        sub_mask = new IBIS::MASK[ 4 ];
+
+        sub_mask[0].init( pow(2.0, mask_index+1), y - pow(2.0, mask_index-1), x - pow(2.0, mask_index-1), mask_index-1, IBIS_data );
+        sub_mask[1].init( pow(2.0, mask_index+1), y - pow(2.0, mask_index-1), x + pow(2.0, mask_index-1), mask_index-1, IBIS_data );
+        sub_mask[2].init( pow(2.0, mask_index+1), y + pow(2.0, mask_index-1), x - pow(2.0, mask_index-1), mask_index-1, IBIS_data );
+        sub_mask[3].init( pow(2.0, mask_index+1), y + pow(2.0, mask_index-1), x + pow(2.0, mask_index-1), mask_index-1, IBIS_data );
+
+    }
+    else {
+        last_parent = new int[4];
+        last_px_x = new int[9];
+        last_px_y = new int[9];
+        last_px_xy = new int[9];
+
+        last_parent[0] = -1;
+        last_parent[1] = -1;
+        last_parent[2] = -1;
+        last_parent[3] = -1;
+
+        int j, k, index_y, index_xy;
+        for( int index_var_y = -1; index_var_y <= 1; index_var_y++ ) {
+            j = y + index_var_y;
+            index_y = IBIS_data->vertical_index[ j ];
+
+            for( int index_var_x = -1; index_var_x <= 1; index_var_x++ ) {
+                k = x + index_var_x;
+                index_xy = index_y + k;
+
+                if( j < IBIS_data->height && k < IBIS_data->width &&
+                        !(index_var_x == -1 && index_var_y == -1 ) &&
+                        !(index_var_x == -1 && index_var_y == 1 ) &&
+                        !(index_var_x == 1 && index_var_y == -1 ) &&
+                        !(index_var_x == 1 && index_var_y == 1 ) ) {
+                    last_px_x[ count_last ] = k;
+                    last_px_y[ count_last ] = j;
+                    last_px_xy[ count_last ] = IBIS_data->vertical_index[ j ] + k;
+
+                    count_last++;
 
                 }
 
@@ -614,110 +616,421 @@ void IBIS::mask_propagate_SP() {
 
         }
 
-#if THREAD_count > 1
-#pragma omp parallel for num_threads(THREAD_count)
-#endif
-        for( int i=0; i<count_mask; i++ )
-            apply_mask( y_mask[i], x_mask[i], mask_index );
-
-        mean_seeds();
-
     }
 
-    delete[] x_mask;
-    delete[] y_mask;
+    // fill mask coordinates
+    generate_mask();
 
 }
 
-void IBIS::process( cv::Mat* img ) {
-    count_reset = 0;
-    size = img->cols * img->rows;
-    width = img->cols;
-    height = img->rows;
+IBIS::MASK::~MASK() {
+    delete[] x_var;
+    delete[] y_var;
+    delete[] xy_var;
+    delete[] limit_value_fill;
 
-    avec = new float[size];
-    bvec = new float[size];
-    lvec = new float[size];
+    if( mask_index > 0 ) {
+        delete[] sub_mask;
 
-    //store mean distance between 2 seeds info
-    SPTypicalLength = (int)(std::sqrt((float)(size) / (float)(maxSPNumber))) + 1;
-    invwt = (float)SPTypicalLength / compacity;
-    invwt = 1.0f / (invwt * invwt);
-    minSPSizeThreshold = (size / maxSPNumber) / 4;
-    max_xy_dist = SPTypicalLength * SPTypicalLength * 4;
+    }
+    else {
+        delete[] last_px_x;
+        delete[] last_px_y;
+        delete[] last_px_xy;
+        delete[] last_parent;
 
-    index_mask = 1;
-    while( SPTypicalLength > ( pow( 2.0, index_mask ) + 1 ) )
-        index_mask++;
-    index_mask--;
-
-    mask_size = new int[ index_mask ];
-    start_xy = new int[ index_mask ];
-
-    for( int k=0; k<index_mask; k++ ) {
-        mask_size[ k ] = pow( 2.0, k+1 ) + 1;
-
-        if( k == 0 )
-            start_xy[ k ] = 1;
-        else
-            start_xy[ k ] = mask_size[ k - 1 ] - 1;
     }
 
-    unique_parent = new int[ mask_size[ index_mask - 1 ] ];
-    updated_px = new bool[ size ];
+}
 
-    x_vec = new int[ size ];
-    y_vec = new int[ size ];
+void IBIS::MASK::reset() {
+    filled = false;
+    last_parent[0] = -1;
+    last_parent[1] = -1;
+    last_parent[2] = -1;
+    last_parent[3] = -1;
 
-    vertical_index = new int[ height + mask_size[ index_mask - 1 ] ];
-    for( int k=0; k < height + mask_size[ index_mask - 1 ]; k++ ) {
-        vertical_index[ k ] = k*width;
+    if( mask_index > 0 ) {
+        sub_mask[ 0 ].reset();
+        sub_mask[ 1 ].reset();
+        sub_mask[ 2 ].reset();
+        sub_mask[ 3 ].reset();
+
     }
 
-    adj_label = new int[ 20 ];
-    count_px_processed = 0;
+}
 
-    labels = new int[size];
-    looking_area = new int[10 * size];
-    count_looking_area = new int[size];
-    initial_repartition = new int[size];
-    st1 = 0;
+void IBIS::MASK::assign_labels( int y, int x, int index_xy, int value ) {
+    IBIS_data->labels[ index_xy ] = value;
 
-    std::fill( updated_px, updated_px + size, false );
-    std::fill( countPx, countPx + maxSPNumber, 1.f );
-    std::fill( labels, labels + size, -1 );
+    IBIS_data->countPx[ value ]++;
+    IBIS_data->lseeds_Sum[ value ]+=IBIS_data->lvec[ index_xy ];
+    IBIS_data->aseeds_Sum[ value ]+=IBIS_data->avec[ index_xy ];
+    IBIS_data->bseeds_Sum[ value ]+=IBIS_data->bvec[ index_xy ];
+    IBIS_data->Xseeds_Sum[ value ]+=x;
+    IBIS_data->Yseeds_Sum[ value ]+=y;
 
-    memset( count_diff, 0, sizeof( int ) * maxSPNumber );
+}
 
-    // generates mask coordinates
-    generate_mask();
+void IBIS::MASK::generate_mask() {
+    int* tmp_x_var = new int[ size ];
+    int* tmp_y_var = new int[ size ];
+    int limit_val, vertical_val;
+    int value_assign;
+    int k = mask_index;
+    int table_index = 0;
 
-    // STEP 0 : convert to Lab
-    cv::Mat lab_image;
-    cv::cvtColor(*img, lab_image, CV_BGR2Lab, 0);
+    if( k > 0 ) {
+        limit_val = IBIS_data->mask_size[ k - 1 ] - 1;
+        vertical_val = -limit_val;
 
-    int ii = 0;
-    for (int i = 0; i < size * 3; i += 3) {
-        lvec[ii] = lab_image.ptr()[i];
-        avec[ii] = lab_image.ptr()[i + 1];
-        bvec[ii] = lab_image.ptr()[i + 2];
-        ii++;
+        for( int index_var=1; index_var <= IBIS_data->mask_size[ k ]; index_var++ ) {
+            if( index_var == 1 ) { //top border
+
+                value_assign = -limit_val;
+                for( int i=table_index; i<=table_index+limit_val; i++ ) {
+                    tmp_x_var[ i ] = x + value_assign;
+                    tmp_y_var[ i ] = y + vertical_val;
+
+                    value_assign += 2;
+                }
+
+                table_index += limit_val + 1;
+                vertical_val += 2;
+
+            }
+            else if( index_var > 1 && index_var < IBIS_data->mask_size[ k - 1 ] ) { // vertical border
+
+                value_assign = -limit_val;
+                for( int i=table_index; i<table_index+2; i++ ) {
+                    tmp_x_var[ i ] = x + value_assign;
+                    tmp_y_var[ i ] = y + vertical_val;
+
+                    value_assign = limit_val;
+                }
+
+                table_index += 2;
+                vertical_val += 2;
+
+            }
+            else { // bot border
+
+                value_assign = -limit_val;
+                for( int i=table_index; i<=table_index+limit_val; i++ ) {
+                    tmp_x_var[ i ] = x + value_assign;
+                    tmp_y_var[ i ] = y + limit_val;
+
+                    value_assign += 2;
+                }
+
+            }
+
+        }
+
+        // eliminate impossible coordinates
+        count_var = 0;
+        for( int i=0; i <= table_index + limit_val; i++ ) {
+            if( tmp_x_var[ i ] >= 0 && tmp_x_var[ i ] < IBIS_data->width && tmp_y_var[ i ] >= 0 && tmp_y_var[ i ] < IBIS_data->height  ) {
+                x_var[ count_var ] = tmp_x_var[ i ];
+                y_var[ count_var ] = tmp_y_var[ i ];
+                xy_var[ count_var ] = IBIS_data->vertical_index[ tmp_y_var[ i ] ] + tmp_x_var[ i ];
+                count_var++;
+
+            }
+
+        }
+
+    }
+    else {
+        tmp_x_var[ 0 ] = x-1;
+        tmp_y_var[ 0 ] = y-1;
+
+        tmp_x_var[ 1 ] = x+1;
+        tmp_y_var[ 1 ] = y-1;
+
+        tmp_x_var[ 2 ] = x-1;
+        tmp_y_var[ 2 ] = y+1;
+
+        tmp_x_var[ 3 ] = x+1;
+        tmp_y_var[ 3 ] = y+1;
+
+        count_var = 0;
+        for( int i=0; i < 4; i++ ) {
+            if( tmp_x_var[ i ] >= 0 && tmp_x_var[ i ] < IBIS_data->width && tmp_y_var[ i ] >= 0 && tmp_y_var[ i ] < IBIS_data->height  ) {
+                x_var[ count_var ] = tmp_x_var[ i ];
+                y_var[ count_var ] = tmp_y_var[ i ];
+                xy_var[ count_var ] = IBIS_data->vertical_index[ tmp_y_var[ i ] ] + tmp_x_var[ i ];
+                count_var++;
+
+            }
+
+        }
+
     }
 
+    if( count_var == 0 )
+        filled = 1;
+
+    delete[] tmp_x_var;
+    delete[] tmp_y_var;
+
+}
+
+void IBIS::MASK::process( int mask_level) {
+    bool stat;
     double lap;
 
-    //lap = now_ms();
-    initSeeds();
-    //st1 = now_ms() - lap;
+    if( ! filled ) {
+        if( mask_level == mask_index ) {
+#if MASK_chrono
+            lap = IBIS_data->now_ms();
+#endif
+            stat = angular_assign();
+#if MASK_chrono
+            IBIS_data->Mt1 += IBIS_data->now_ms() - lap;
+#endif
 
-    lap = now_ms();
-    mask_propagate_SP();
-    st3 = now_ms() - lap;
+            if( stat ) {
+#if MASK_chrono
+                lap = IBIS_data->now_ms();
+#endif
+                fill_mask();
+#if MASK_chrono
+                IBIS_data->Mt2 += IBIS_data->now_ms() - lap;
+#endif
 
-    lap = now_ms();
-    enforceConnectivity();
-    st4 = now_ms() - lap;
+                return;
+            }
+            else {
+                if( mask_index == 0 ) {
+#if MASK_chrono
+                    lap = IBIS_data->now_ms();
+#endif
+                    assign_last();
+#if MASK_chrono
+                    IBIS_data->Mt3 += IBIS_data->now_ms() - lap;
+#endif
 
-    printf("PERF_T %lf\n", st3+st4);
-    //printf("Seeds id \t %lf\n", st1);
+                }
+
+            }
+
+        }
+        else {
+            if( mask_index > 0 ) {
+                sub_mask[ 0 ].process( mask_level );
+                sub_mask[ 1 ].process( mask_level );
+                sub_mask[ 2 ].process( mask_level );
+                sub_mask[ 3 ].process( mask_level );
+
+            }
+
+        }
+
+    }
+
+#if VISU_all
+    imagesc( std::string("processed"), IBIS_data->processed, IBIS_data->width, IBIS_data->height );
+    cv::waitKey(1);
+#endif
+
+}
+
+int IBIS::MASK::assign_last_px( int y, int x, int index_xy ) {
+    int best_sp = -1;
+    float dist_xy;
+    float l, a, b;
+    float dist_lab;
+    int index_sp;
+    float D=-1.f;
+    float total_dist;
+
+    for( int i=0; i<count_last_parent; i++ ) {
+        index_sp = last_parent[ i ];
+
+        l = IBIS_data->lvec[ index_xy ];
+        a = IBIS_data->avec[ index_xy ];
+        b = IBIS_data->bvec[ index_xy ];
+
+        dist_lab = ( l - IBIS_data->lseeds[ index_sp ]) * ( l - IBIS_data->lseeds[ index_sp ]) +
+                   ( a - IBIS_data->aseeds[ index_sp ]) * ( a - IBIS_data->aseeds[ index_sp ]) +
+                   ( b - IBIS_data->bseeds[ index_sp ]) * ( b - IBIS_data->bseeds[ index_sp ]);
+
+        dist_xy = ( x - IBIS_data->Xseeds[ index_sp ] ) * ( x - IBIS_data->Xseeds[ index_sp ] ) +
+                  ( y - IBIS_data->Yseeds[ index_sp ] ) * ( y - IBIS_data->Yseeds[ index_sp ] );
+
+
+        total_dist = dist_lab + dist_xy * IBIS_data->invwt;
+
+        if( total_dist < D || D < 0) {
+            best_sp = index_sp;
+            D = total_dist;
+
+        }
+
+    }
+
+    return best_sp;
+
+}
+
+int IBIS::MASK::assign_px( int y, int x, int index_xy ) {
+    int best_sp = -1;
+    float dist_xy;
+    float l, a, b;
+    float dist_lab;
+    int index_sp;
+    float D=-1.f;
+    float total_dist;
+
+    for( int i=0; i<IBIS_data->count_adjacent[IBIS_data->initial_repartition[index_xy]]; i++ ) {
+        index_sp = IBIS_data->adjacent_sp[ size_roi*IBIS_data->initial_repartition[index_xy] + i ];
+
+        l = IBIS_data->lvec[ index_xy ];
+        a = IBIS_data->avec[ index_xy ];
+        b = IBIS_data->bvec[ index_xy ];
+
+        dist_lab = ( l - IBIS_data->lseeds[ index_sp ]) * ( l - IBIS_data->lseeds[ index_sp ]) +
+                   ( a - IBIS_data->aseeds[ index_sp ]) * ( a - IBIS_data->aseeds[ index_sp ]) +
+                   ( b - IBIS_data->bseeds[ index_sp ]) * ( b - IBIS_data->bseeds[ index_sp ]);
+
+        dist_xy = ( x - IBIS_data->Xseeds[ index_sp ] ) * ( x - IBIS_data->Xseeds[ index_sp ] ) +
+                  ( y - IBIS_data->Yseeds[ index_sp ] ) * ( y - IBIS_data->Yseeds[ index_sp ] );
+
+
+        total_dist = dist_lab + dist_xy * IBIS_data->invwt;
+
+        if( total_dist < D || D < 0) {
+            best_sp = index_sp;
+            D = total_dist;
+
+        }
+
+    }
+
+    return best_sp;
+}
+
+void IBIS::MASK::assign_last() {
+
+    int value;
+
+    for( int index_last=0; index_last < count_last; index_last++ ) {
+        if( IBIS_data->labels[ last_px_xy[ index_last ] ] < 0 ) {
+            value = assign_last_px( last_px_y[ index_last ], last_px_x[ index_last ], last_px_xy[ index_last ] );
+            assign_labels( last_px_y[ index_last ], last_px_x[ index_last ], last_px_xy[ index_last ], value );
+
+            IBIS_data->processed[ last_px_xy[ index_last ] ] = 1;
+
+        }
+
+    }
+
+}
+
+void IBIS::MASK::fill_mask() {
+
+    int j;
+    int index_y;
+
+    for( int index_var_y = limit_value_fill[2]; index_var_y <= limit_value_fill[3]; index_var_y++ ) {
+        j = index_var_y;
+        index_y = IBIS_data->vertical_index[ index_var_y ]; //index_var_y*width;
+
+        std::fill( IBIS_data->labels + index_y + limit_value_fill[0], IBIS_data->labels + index_y + limit_value_fill[1], angular );
+        std::fill( IBIS_data->initial_repartition + index_y + limit_value_fill[0], IBIS_data->initial_repartition + index_y + limit_value_fill[1], angular );
+
+        for( int index_var_x = limit_value_fill[0]; index_var_x <= limit_value_fill[1]; index_var_x++ )
+            assign_labels( index_var_y, index_var_x, IBIS_data->vertical_index[ index_var_y ] + index_var_x, angular );
+    }
+
+    filled = true;
+
+}
+
+bool IBIS::MASK::angular_assign() {
+    int j, k;
+    int best_sp;
+    int index_xy;
+    bool first=true;
+    bool output = true;
+    int ref_sp;
+    angular = -1;
+
+    if( mask_index > 0 ) {
+        for( int index_var=0; index_var < count_var; index_var++ ) {
+            j = y_var[ index_var ];
+            k = x_var[ index_var ];
+            index_xy = xy_var[ index_var ];
+
+            IBIS_data->processed[ index_xy ] = 1;
+
+            if( IBIS_data->labels[ index_xy ] < 0 ) {
+                // assign px
+                angular = assign_px( j, k, index_xy );
+
+            }
+            else
+                angular = IBIS_data->labels[ index_xy ];
+
+            if( first ) {
+                first = false;
+                ref_sp = angular;
+
+            }
+
+            if( ref_sp != angular && !first ) {
+                 return false;
+
+            }
+
+        }
+
+    }
+    else {
+        count_last_parent = 0;
+
+        for( int index_var=0; index_var < count_var; index_var++ ) {
+            j = y_var[ index_var ];
+            k = x_var[ index_var ];
+            index_xy = xy_var[ index_var ];
+
+            IBIS_data->processed[ index_xy ] = 1;
+
+            if( IBIS_data->labels[ index_xy ] < 0 ) {
+                // assign px
+                best_sp = assign_px( j, k, index_xy );
+
+                //IBIS_data->labels[ index_xy ] = best_sp;
+                assign_labels( j, k, IBIS_data->vertical_index[ j ] + k, best_sp );
+
+            }
+
+            angular = IBIS_data->labels[ index_xy ];
+
+            if( (last_parent[0] != angular) &&
+                (last_parent[1] != angular) &&
+                (last_parent[2] != angular) &&
+                (last_parent[3] != angular) ) {
+
+                last_parent[ count_last_parent ] = angular;
+                count_last_parent++;
+
+            }
+
+            if( first ) {
+                ref_sp = angular;
+                first = false;
+
+            }
+
+            if( ref_sp != angular && !first )
+                output = false;
+
+        }
+
+    }
+
+    return output;
+
 }
