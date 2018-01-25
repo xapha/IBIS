@@ -1,3 +1,23 @@
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *  --------------------------- Benchmark setup : -----------------------------------------------------
+ * activate or not the THREAD count from 2 to number of physical CPU core (for best performance)
+ * size_roi = 9
+ * MATLAB_lab = 0
+ * MASK_chrono = 0
+ * VISU = 0
+ * VISU_all = 0
+ * OUTPUT_log = 1 : if you want to get the time output, else 0
+ *
+ * You better want to run IBIS on a directory than a single file since the initialization of
+ * every mask could be time consuming in comparison with the processing itself.
+ */
+
 #ifndef IBIS_H
 #define IBIS_H
 
@@ -9,7 +29,7 @@
 #include "utils.h"
 
 // algo debug parameters
-#define THREAD_count        4       // deactivate if <= 1
+#define THREAD_count        4       // deactivated if <= 1
 #define size_roi            9       // 9 25 49 : consider adjacent seeds for pixels assignation
 #define MATLAB_lab          0       // 0=>RGB2LAB : l,a,b -> 0-255. 1=>RGB2LAB : l -> 0-100; a,b -> -127:127
 #define MASK_chrono         0       // 0:1 for evaluation purpose : slow down the process !
