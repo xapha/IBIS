@@ -5,6 +5,9 @@
 #include <cmath>
 #include <fstream>
 #include <highgui.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 using namespace std;
 //=================================================================================
@@ -25,7 +28,8 @@ void DrawContoursAroundSegments(
 
     int sz = width*height;
     vector<bool> istaken(sz, false);
-    vector<int> contourx(sz);vector<int> contoury(sz);
+    vector<int> contourx(sz);
+    vector<int> contoury(sz);
     int mainindex(0);int cind(0);
 
     for( int j = 0; j < height; j++ )
@@ -104,48 +108,19 @@ std::string get_name(const std::string& path_with_ext)
     int deb = path_with_ext.find_last_of("/");
     int fin = path_with_ext.find_last_of(".");
     return path_with_ext.substr(deb+1, fin-deb-1);
+
 }
 
-int main( int argc, char* argv[] )
-{
-    printf(" - Iterative Boundary Identification Segmentation - \n\n");
-
-    int K;
-    int compa;
-
-    if( argc != 4 ) {
-        printf(" --> usage ./ibis SP_number Compacity File_path \n");
-        return -1;
-
-    }
-    else {
-        K = atoi( argv[ 1 ] );
-        compa = atoi( argv[ 2 ] );
-
-        if( K < 0 || compa < 0 ) {
-            printf(" --> usage ./ibis SP_number Compacity File_path \n");
-            return -1;
-
-        }
-
-    }
-
-    // IBIS
-    IBIS Super_Pixel( K, compa );
-
-    // get picture
-    cv::Mat img = cv::imread( argv[ 3 ] );
+void execute_IBIS( int K, int compa, IBIS* Super_Pixel, cv::Mat* img, std::string output_basename ) {
 
     // process IBIS
-    Super_Pixel.process( &img );
+    Super_Pixel->process( img );
 
     // convert int* labels to Mat* labels in gray scale
-    int* labels = Super_Pixel.getLabels();
+    int* labels = Super_Pixel->getLabels();
 
-    const int width = img.cols;
-    const int height = img.rows;
-    std::string output_basename = argv[3];
-    output_basename = get_name(output_basename);
+    const int width = img->cols;
+    const int height = img->rows;
     const int color = 0xFFFFFFFF;
     std::string output_labels = output_basename;
     output_labels = std::string("results/") + output_labels + std::string(".seg");
@@ -170,11 +145,176 @@ int main( int argc, char* argv[] )
 
     cvCvtColor(output_bounds_alpha, output_bounds, CV_RGBA2RGB);
 
-    std::string output_boundaries_name = output_basename;
+    std::string output_boundaries_name = get_name(output_basename);
     output_boundaries_name = std::string("results/") + output_boundaries_name + std::string("_boundary.png");
     cvSaveImage(output_boundaries_name.c_str(), output_bounds);
 
     cvReleaseImage(&output_bounds_alpha);
     cvReleaseImage(&output_bounds);
 
+}
+
+int filter( const struct dirent *name ) {
+    std::string file_name = std::string( name->d_name );
+    std::size_t found = file_name.find(".png");
+    if (found!=std::string::npos) {
+        return 1;
+
+    }
+
+    found = file_name.find(".jpg");
+    if (found!=std::string::npos) {
+        return 1;
+
+    }
+
+    found = file_name.find(".ppm");
+    if (found!=std::string::npos) {
+        return 1;
+
+    }
+
+    return 0;
+
+}
+
+int main( int argc, char* argv[] )
+{
+    printf(" - Iterative Boundaries implicit Identification for Segmentation - \n\n");
+
+    int K;
+    int compa;
+
+    if( argc != 4 ) {
+        printf("--> usage ./ibis SP_number Compacity File_path\n");
+        printf(" |-> SP_number: user fixed number of superpixels, > 0\n");
+        printf(" |-> Compacity: factor of caompacity, set to 20 for benchmark, > 0\n");
+        printf(" |-> File_path: path to the file to compute\n");
+        printf("  |-> if file_path is a directory, all the image within file_path/ are processed\n");
+        printf("format: .png, .jpg, .ppm\n");
+        printf("\n");
+        printf("--> output file are saved in a \"./results\" directory\n");
+
+        exit(EXIT_SUCCESS);
+
+    }
+    else {
+        K = atoi( argv[ 1 ] );
+        compa = atoi( argv[ 2 ] );
+
+        if( K < 0 || compa < 0 ) {
+            printf("--> usage ./ibis SP_number Compacity File_path\n");
+            printf(" |-> SP_number: user fixed number of superpixels, > 0\n");
+            printf(" |-> Compacity: factor of caompacity, set to 20 for benchmark, > 0\n");
+            printf(" |-> File_path: path to the file to compute\n");
+            printf("  |-> if file_path is a directory, all the image within file_path/ are processed\n");
+            printf("format: .png, .jpg, .ppm\n");
+            printf("\n");
+            printf("--> output file are saved in a \"./results\" directory\n");
+
+            exit(EXIT_SUCCESS);
+
+        }
+
+    }
+
+    // determine mode : file or path
+    struct stat sb;
+
+    if (stat(argv[3], &sb) == -1) {
+        perror("stat");
+        exit(EXIT_SUCCESS);
+    }
+
+    int type;
+    switch (sb.st_mode & S_IFMT) {
+        case S_IFDIR:
+            printf("directory processing\n");
+            type=0;
+        break;
+        case S_IFREG:
+            printf("single file processing\n");
+            type=1;
+        break;
+        default:
+            type=-1;
+        break;
+
+    }
+
+    if( type == -1 )
+        exit(EXIT_SUCCESS);
+    else if( type == 1 ) {
+        // IBIS
+        IBIS Super_Pixel( K, compa );
+
+        // get picture
+        cv::Mat img = cv::imread( argv[ 3 ] );
+
+        // execute IBIS
+        execute_IBIS( K, compa, &Super_Pixel, &img, argv[ 3 ] );
+
+    }
+    else if( type == 0 ) {
+        // get file list
+        struct dirent **namelist;
+        int n = scandir(argv[3], &namelist, &filter, alphasort);
+        if (n == -1) {
+           perror("scandir");
+           exit(EXIT_FAILURE);
+
+        }
+
+        printf(" %i image(s) found\n", n);
+        if( n == 0 )
+            exit(EXIT_SUCCESS);
+
+        // process file list
+        int width = 0;
+        int height = 0;
+        IBIS* Super_Pixel;
+        char* image_name = (char*)malloc(255);
+        while (n--) {
+            printf("processing %s\n", namelist[n]->d_name);
+
+            // get picture
+
+            sprintf(image_name, "%s/%s", argv[3], namelist[n]->d_name );
+            cv::Mat img = cv::imread( image_name );
+
+            // execute IBIS
+            if( width == 0 ) {
+                width = img.cols;
+                height = img.rows;
+
+                // IBIS
+                Super_Pixel = new IBIS( K, compa );
+
+            }
+            else {
+                if( width != img.cols ) {
+                    delete Super_Pixel;
+                    Super_Pixel = new IBIS( K, compa );
+
+                    width = img.cols;
+                    height = img.rows;
+
+                }
+
+            }
+
+            execute_IBIS( K, compa, Super_Pixel, &img, image_name );
+
+            free(namelist[n]);
+
+            printf("\n");
+        }
+
+        free( image_name );
+        delete Super_Pixel;
+        free( namelist );
+
+    }
+
+    exit(EXIT_SUCCESS);
 }

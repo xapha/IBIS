@@ -12,8 +12,8 @@
 #define THREAD_count        4       // deactivate if <= 1
 #define size_roi            9       // 9 25 49 : consider adjacent seeds for pixels assignation
 #define MATLAB_lab          0       // 0=>RGB2LAB : l,a,b -> 0-255. 1=>RGB2LAB : l -> 0-100; a,b -> -127:127
-#define MASK_chrono         1       // 0:1 for evaluation purpose : slow down the process !
-#define VISU                1       // show processed pixels for each iterations
+#define MASK_chrono         0       // 0:1 for evaluation purpose : slow down the process !
+#define VISU                0       // show processed pixels for each iterations
 #define VISU_all            0       // for mask by mask visu of the processing : THREAD_count = 0, very slow
 #define OUTPUT_log          1       // 0:1 print output log
 
@@ -140,6 +140,10 @@ private:
     float* lseeds;
     float* aseeds;
     float* bseeds;
+
+    // initial seeds repartition
+    float* Xseeds_init;
+    float* Yseeds_init;
 
     // image data
     float* lvec;

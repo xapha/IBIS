@@ -13,6 +13,9 @@ IBIS::IBIS(int _maxSPNum, int _compacity ) : slicTime(0.), slicNum(0) {
     aseeds = new float[maxSPNumber];
     bseeds = new float[maxSPNumber];
 
+    Xseeds_init = new float[maxSPNumber];
+    Yseeds_init = new float[maxSPNumber];
+
     Xseeds_Sum = new float[maxSPNumber];
     Yseeds_Sum = new float[maxSPNumber];
     lseeds_Sum = new float[maxSPNumber];
@@ -32,6 +35,7 @@ IBIS::~IBIS() {
     delete[] avec;
     delete[] lvec;
     delete[] bvec;
+    delete[] inv;
 
     // allocated in constructor
     delete[] Xseeds;
@@ -39,6 +43,9 @@ IBIS::~IBIS() {
     delete[] lseeds;
     delete[] aseeds;
     delete[] bseeds;
+
+    delete[] Xseeds_init;
+    delete[] Yseeds_init;
 
     delete[] Xseeds_Sum;
     delete[] Yseeds_Sum;
@@ -118,17 +125,13 @@ void IBIS::initSeeds() {
             }
             else {
                 start_x = x * SPTypicalLength + xe;
-                final_x = ( (x + 1) * SPTypicalLength + xe_1 >= width ) ? width-1 : (x + 1) * SPTypicalLength + xe_1;
+
+                final_x = ( (x + 1) * SPTypicalLength + xe_1 > width ) ? width : (x + 1) * SPTypicalLength + xe_1;
 
             }
 
-            int i = seedy * width + seedx;
-
-            Xseeds[n] = (float) seedx;
-            Yseeds[n] = (float) seedy;
-            lseeds[n] = lvec[i];
-            aseeds[n] = avec[i];
-            bseeds[n] = bvec[i];
+            Xseeds_init[n] = (float) seedx;
+            Yseeds_init[n] = (float) seedy;
 
             // fill line by line
             for( int index_y=start_y; index_y<=final_y; index_y++ ) {
@@ -149,12 +152,6 @@ void IBIS::initSeeds() {
                 }
 
             }
-
-            Xseeds_Sum[n] = Xseeds[n];
-            Yseeds_Sum[n] = Yseeds[n];
-            lseeds_Sum[n] = lseeds[n];
-            aseeds_Sum[n] = aseeds[n];
-            bseeds_Sum[n] = bseeds[n];
 
             n++;
         }
@@ -375,7 +372,7 @@ void IBIS::init() {
     }
 
     count_mask = ii;
-    mask_buffer = new MASK[ ii ];
+    mask_buffer = new MASK[ count_mask ];
     ii=0;
     for( int y=start_xy; y<y_limit; y+=step ) {
         for( int x=start_xy; x<x_limit; x+=step ) {
@@ -389,6 +386,8 @@ void IBIS::init() {
 }
 
 void IBIS::reset() {
+    int index_xy;
+
 #if MASK_chrono
     Mt1 = 0;
     Mt2 = 0;
@@ -404,11 +403,25 @@ void IBIS::reset() {
     std::fill( countPx, countPx + maxSPNumber, 0 );
     std::fill( labels, labels + size, -1 );
 
+    for( int i=0; i < SPNumber; i++ ) {
+        Xseeds[ i ] = Xseeds_init[ i ];
+        Yseeds[ i ] = Yseeds_init[ i ];
+
+        index_xy = vertical_index[ (int) Yseeds[ i ] ] + Xseeds[ i ];
+
+        lseeds[ i ] = lvec[ index_xy ];
+        aseeds[ i ] = avec[ index_xy ];
+        bseeds[ i ] = bvec[ index_xy ];
+    }
+
     memset( lseeds_Sum, 0, sizeof( float ) * maxSPNumber );
     memset( aseeds_Sum, 0, sizeof( float ) * maxSPNumber );
     memset( bseeds_Sum, 0, sizeof( float ) * maxSPNumber );
     memset( Xseeds_Sum, 0, sizeof( float ) * maxSPNumber );
     memset( Yseeds_Sum, 0, sizeof( float ) * maxSPNumber );
+
+    for( int i=0; i<count_mask; i++ )
+        mask_buffer[ i ].reset();
 
 }
 
@@ -435,19 +448,7 @@ void IBIS::getLAB( cv::Mat* img ) {
 void IBIS::process( cv::Mat* img ) {
     double lap;
 
-    if( size > 0 ) {
-        if( width != img-> cols || width != img->rows ) {
-            size = img->cols * img->rows;
-            width = img->cols;
-            height = img->rows;
-
-            // initialise all the buffer and inner parameters
-            init();
-
-        }
-
-    }
-    else {
+    if( size == 0 ) {
         size = img->cols * img->rows;
         width = img->cols;
         height = img->rows;
@@ -455,16 +456,16 @@ void IBIS::process( cv::Mat* img ) {
         // initialise all the buffer and inner parameters
         init();
 
+        // STEP 1 : initialize with fix grid seeds value
+        initSeeds();
+
     }
+
+    // convert to Lab
+    getLAB( img );
 
     // prepare value to compute a picture
     reset();
-
-    // STEP 0 : convert to Lab
-    getLAB( img );
-
-    // STEP 1 : initialize with fix grid seeds value
-    initSeeds();
 
     // STEP 2 : process IBIS
 #if OUTPUT_log
@@ -565,7 +566,7 @@ void IBIS::MASK::init( int size_in, int y_in, int x_in, int mask_level, IBIS* pt
     filled = false;
     int limit_value = ( IBIS_data->mask_size[ mask_index ] - 1 )/2;
     limit_value_fill[0] = ( x - limit_value < 0 ) ? 0 : x - limit_value;
-    limit_value_fill[1] = ( x + limit_value >= IBIS_data->width ) ? IBIS_data->width - 1 : x + limit_value;
+    limit_value_fill[1] = ( x + limit_value > IBIS_data->width-1 ) ? IBIS_data->width-1 : x + limit_value;
     limit_value_fill[2] = ( y - limit_value < 0 ) ? 0 : y - limit_value;
     limit_value_fill[3] = ( y + limit_value >= IBIS_data->height ) ? IBIS_data->height - 1 : y + limit_value;
 
@@ -645,16 +646,19 @@ IBIS::MASK::~MASK() {
 
 void IBIS::MASK::reset() {
     filled = false;
-    last_parent[0] = -1;
-    last_parent[1] = -1;
-    last_parent[2] = -1;
-    last_parent[3] = -1;
 
     if( mask_index > 0 ) {
         sub_mask[ 0 ].reset();
         sub_mask[ 1 ].reset();
         sub_mask[ 2 ].reset();
         sub_mask[ 3 ].reset();
+
+    }
+    else {
+        last_parent[0] = -1;
+        last_parent[1] = -1;
+        last_parent[2] = -1;
+        last_parent[3] = -1;
 
     }
 
@@ -675,8 +679,7 @@ void IBIS::MASK::assign_labels( int y, int x, int index_xy, int value ) {
 void IBIS::MASK::generate_mask() {
     int* tmp_x_var = new int[ size ];
     int* tmp_y_var = new int[ size ];
-    int limit_val, vertical_val;
-    int value_assign;
+    int limit_val, vertical_val, value_assign;
     int k = mask_index;
     int table_index = 0;
 
@@ -934,14 +937,10 @@ void IBIS::MASK::fill_mask() {
     int index_y;
 
     for( int index_var_y = limit_value_fill[2]; index_var_y <= limit_value_fill[3]; index_var_y++ ) {
-        j = index_var_y;
-        index_y = IBIS_data->vertical_index[ index_var_y ]; //index_var_y*width;
-
-        std::fill( IBIS_data->labels + index_y + limit_value_fill[0], IBIS_data->labels + index_y + limit_value_fill[1], angular );
-        std::fill( IBIS_data->initial_repartition + index_y + limit_value_fill[0], IBIS_data->initial_repartition + index_y + limit_value_fill[1], angular );
-
-        for( int index_var_x = limit_value_fill[0]; index_var_x <= limit_value_fill[1]; index_var_x++ )
+        for( int index_var_x = limit_value_fill[0]; index_var_x <= limit_value_fill[1]; index_var_x++ ) {
             assign_labels( index_var_y, index_var_x, IBIS_data->vertical_index[ index_var_y ] + index_var_x, angular );
+
+        }
     }
 
     filled = true;
