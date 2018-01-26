@@ -1,3 +1,10 @@
+/* -- Serge Bobbia : serge.bobbia@u-bourgogne.fr -- Le2i 2018
+ * This work is distributed for non commercial use only,
+ * it implements the IBIS method as described in the ICPR 2018 paper.
+ *
+ * Read the ibis.h file for options and benchmark instructions
+ */
+
 #include "ibis.h"
 
 IBIS::IBIS(int _maxSPNum, int _compacity ) : slicTime(0.), slicNum(0) {
@@ -205,7 +212,7 @@ float IBIS::get_complexity() {
 
     }
 
-    return count_px_processed / size;
+    return float(count_px_processed) / float(size);
 
 }
 
@@ -491,20 +498,30 @@ void IBIS::process( cv::Mat* img ) {
 
     // output log
 #if OUTPUT_log
+    printf("-----------------\n");
     printf("PERF_T %lf\n", st3+st4);
     printf("IBIS.process\t\t%lf\t ms\n", st3);
     printf("IBIS.post_process\t%lf\t ms\n", st4);
-    printf("Pixels processed:\t%lf\t\%\n", get_complexity()*100 );
 
     #if MASK_chrono
+    float chrono[4] = { 0.f };
+    for( int i=0; i < count_mask; i++ )
+        mask_buffer[i].get_chrono( chrono );
+
+    float total_chrono = chrono[0] + chrono[1] + chrono[2] + st2;
+
     printf("-----------------------------------\n");
-    printf("\tMASK.angular_assign()\t\t%lf\n", Mt1/(Mt1+Mt2+Mt3+st2));
-    printf("\tMASK.fill_mask()\t\t%lf\n", Mt2/(Mt1+Mt2+Mt3+st2));
-    printf("\tMASK.assign_last()\t\t%lf\n", Mt3/(Mt1+Mt2+Mt3+st2));
-    printf("\tIBIS.mean_seeds()\t\t%lf\n", st2/(Mt1+Mt2+Mt3+st2));
+    printf("Pixels processed:\t%lf\t\%\n", get_complexity()*100 );
+    printf("-----------------\n");
+    printf("\tMASK.angular_assign()\t\t%lf \%\n", chrono[0]/total_chrono);
+    printf("\tMASK.fill_mask()\t\t%lf \%\n", chrono[1]/total_chrono);
+    printf("\tMASK.assign_last()\t\t%lf \%\n", chrono[2]/total_chrono);
+    printf("\tIBIS.mean_seeds()\t\t%lf \%\n", st2/total_chrono);
 
     #if THREAD_count > 1
-    printf("multi-thread accel:\t\t\t%lf times\n", (Mt1+Mt2+Mt3+st2)/st3);
+    printf("-----------------\n");
+    printf("multi-thread accel:\t\t\t%lf times\n", total_chrono/st3);
+    printf("-----------------\n");
     #endif
 
     #endif
@@ -646,6 +663,9 @@ IBIS::MASK::~MASK() {
 
 void IBIS::MASK::reset() {
     filled = false;
+    Mt1 = 0;
+    Mt2 = 0;
+    Mt3 = 0;
 
     if( mask_index > 0 ) {
         sub_mask[ 0 ].reset();
@@ -659,6 +679,22 @@ void IBIS::MASK::reset() {
         last_parent[1] = -1;
         last_parent[2] = -1;
         last_parent[3] = -1;
+
+    }
+
+}
+
+void IBIS::MASK::get_chrono( float* chrono ) {
+
+    chrono[0]  += Mt1;
+    chrono[1]  += Mt2;
+    chrono[2]  += Mt3;
+
+    if( mask_index > 0 ) {
+        sub_mask[ 0 ].get_chrono( chrono );
+        sub_mask[ 1 ].get_chrono( chrono );
+        sub_mask[ 2 ].get_chrono( chrono );
+        sub_mask[ 3 ].get_chrono( chrono );
 
     }
 
@@ -790,7 +826,7 @@ void IBIS::MASK::process( int mask_level) {
 #endif
             stat = angular_assign();
 #if MASK_chrono
-            IBIS_data->Mt1 += IBIS_data->now_ms() - lap;
+            Mt1 += IBIS_data->now_ms() - lap;
 #endif
 
             if( stat ) {
@@ -799,7 +835,7 @@ void IBIS::MASK::process( int mask_level) {
 #endif
                 fill_mask();
 #if MASK_chrono
-                IBIS_data->Mt2 += IBIS_data->now_ms() - lap;
+                Mt2 += IBIS_data->now_ms() - lap;
 #endif
 
                 return;
@@ -811,7 +847,7 @@ void IBIS::MASK::process( int mask_level) {
 #endif
                     assign_last();
 #if MASK_chrono
-                    IBIS_data->Mt3 += IBIS_data->now_ms() - lap;
+                    Mt3 += IBIS_data->now_ms() - lap;
 #endif
 
                 }
@@ -923,7 +959,9 @@ void IBIS::MASK::assign_last() {
             value = assign_last_px( last_px_y[ index_last ], last_px_x[ index_last ], last_px_xy[ index_last ] );
             assign_labels( last_px_y[ index_last ], last_px_x[ index_last ], last_px_xy[ index_last ], value );
 
+#if VISU || VISU_all || MASK_chrono
             IBIS_data->processed[ last_px_xy[ index_last ] ] = 1;
+#endif
 
         }
 
@@ -962,7 +1000,9 @@ bool IBIS::MASK::angular_assign() {
             k = x_var[ index_var ];
             index_xy = xy_var[ index_var ];
 
+#if VISU || VISU_all || MASK_chrono
             IBIS_data->processed[ index_xy ] = 1;
+#endif
 
             if( IBIS_data->labels[ index_xy ] < 0 ) {
                 // assign px
@@ -994,7 +1034,9 @@ bool IBIS::MASK::angular_assign() {
             k = x_var[ index_var ];
             index_xy = xy_var[ index_var ];
 
+#if VISU || VISU_all || MASK_chrono
             IBIS_data->processed[ index_xy ] = 1;
+#endif
 
             if( IBIS_data->labels[ index_xy ] < 0 ) {
                 // assign px

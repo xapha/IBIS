@@ -1,9 +1,8 @@
-/*
- *
- *
- *
- *
- *
+/* -- Serge Bobbia : serge.bobbia@u-bourgogne.fr -- Le2i 2018
+ * This work is distributed for non commercial use only,
+ * it implements the IBIS method as described in the ICPR 2018 paper.
+ * The multi-threading is done with openMP, which is not an optimal solution
+ * But was chosen as it was the simpliest way to do it without further justifications.
  *
  *  --------------------------- Benchmark setup : -----------------------------------------------------
  * activate or not the THREAD count from 2 to number of physical CPU core (for best performance)
@@ -32,7 +31,7 @@
 #define THREAD_count        4       // deactivated if <= 1
 #define size_roi            9       // 9 25 49 : consider adjacent seeds for pixels assignation
 #define MATLAB_lab          0       // 0=>RGB2LAB : l,a,b -> 0-255. 1=>RGB2LAB : l -> 0-100; a,b -> -127:127
-#define MASK_chrono         0       // 0:1 for evaluation purpose : slow down the process !
+#define MASK_chrono         1       // 0:1 provide more informations ( complexity, process burden repartition ) : slow down the process !
 #define VISU                0       // show processed pixels for each iterations
 #define VISU_all            0       // for mask by mask visu of the processing : THREAD_count = 0, very slow
 #define OUTPUT_log          1       // 0:1 print output log
@@ -80,12 +79,11 @@ private:
         int* last_px_y;
         int* last_px_xy;
         int* last_parent;
+        int* limit_value_fill;
 
         int count_var;
         int count_last;
         int count_last_parent;
-
-        int* limit_value_fill;
 
         int x;
         int y;
@@ -93,8 +91,11 @@ private:
         int mask_index;
         int angular;
         bool filled;
+
         MASK* sub_mask;
         IBIS* IBIS_data;
+
+        double Mt1, Mt2, Mt3, Mt4;
 
         void generate_mask();
 
@@ -113,6 +114,7 @@ private:
         void fill_mask();
         bool angular_assign();
         void assign_labels( int x, int y, int index_xy, int value );
+        void get_chrono( float* times );
 
     };
 

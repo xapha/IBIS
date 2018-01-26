@@ -1,3 +1,12 @@
+/* -- Serge Bobbia : serge.bobbia@u-bourgogne.fr -- Le2i 2018
+ * This work is distributed for non commercial use only,
+ * it implements the IBIS method as described in the ICPR 2018 paper.
+ * Read the ibis.h file for options and benchmark instructions
+ *
+ * This file show how to instanciate the IBIS class
+ * You can either provide a file, or a directory, path to segment images
+ */
+
 #include <iostream>
 #include "ibis.h"
 #include <opencv2/opencv.hpp>
