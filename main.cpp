@@ -183,6 +183,18 @@ int filter( const struct dirent *name ) {
 
     }
 
+    found = file_name.find(".bmp");
+    if (found!=std::string::npos) {
+        return 1;
+
+    }
+
+    found = file_name.find(".tiff");
+    if (found!=std::string::npos) {
+        return 1;
+
+    }
+
     return 0;
 
 }
@@ -200,7 +212,7 @@ int main( int argc, char* argv[] )
         printf(" |-> Compacity: factor of caompacity, set to 20 for benchmark, > 0\n");
         printf(" |-> File_path: path to the file to compute\n");
         printf("  |-> if file_path is a directory, all the image within file_path/ are processed\n");
-        printf("format: .png, .jpg, .ppm\n");
+        printf("format: .png, .jpg, .ppm, .bmp, .tiff\n");
         printf("\n");
         printf("--> output file are saved in a \"./results\" directory\n");
 
