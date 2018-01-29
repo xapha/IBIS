@@ -131,7 +131,7 @@ void execute_IBIS( int K, int compa, IBIS* Super_Pixel, cv::Mat* img, std::strin
     const int width = img->cols;
     const int height = img->rows;
     const int color = 0xFFFFFFFF;
-    std::string output_labels = output_basename;
+    std::string output_labels = get_name(output_basename);
     output_labels = std::string("results/") + output_labels + std::string(".seg");
 
     ofstream outfile;

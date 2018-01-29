@@ -50,9 +50,6 @@ public:
 
     int getMaxSPNumber() { return maxSPNumber;}
     int getActualSPNumber() { return SPNumber; }
-
-    float getComputationTime() { return st3; }
-    float getPostProcessingTime() { return st4; }
     int* getLabels() { return labels; }
 
     float get_complexity();
