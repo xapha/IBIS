@@ -1,4 +1,4 @@
-# IBIS
+# IBIS : Iterative Boundaries implicit Identification for Segmentation
 
 This repo. is dedicated to the IBIS super-pixel method submitted at the IEEE ICPR 2018 conference.
 
