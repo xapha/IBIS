@@ -28,7 +28,7 @@ git clone "git@github.com:xapha/IBIS.git"
 cd IBIS
 mkdir results
 mkdir build && cd build
-cmake ..
+cmake -D CMAKE_BUILD_TYPE=Release ..
 make
 ./IBIS
 ```
