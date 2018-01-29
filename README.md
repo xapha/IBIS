@@ -2,6 +2,8 @@
 
 This repo. is dedicated to the IBIS super-pixel method submitted at the IEEE ICPR 2018 conference.
 
+### IBIS: Real Time Superpixels Segmentation using a Fraction of an Image
+
 #### Abstract : 
 
 > Superpixels are becoming increasingly popular for use in computer vision applications. However, most state-of-the-art superpixel segmentation algorithms suffer from a high computational cost, which prevents their use for real-time systems. We propose a new approach for superpixel segmentation with a low complexity, decreasing significantly the computation time needed. Instead of evaluating each pixel of an image to assign superpixel labels, this method named IBIS for Iterative Boundaries implicit Identification Segmentation, performs an iterative search for the superpixels boundaries in order to form regular and coherent clusters.
