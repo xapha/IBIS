@@ -7,7 +7,7 @@
 
 #include "ibis.h"
 
-IBIS::IBIS(int _maxSPNum, int _compacity ) : slicTime(0.), slicNum(0) {
+IBIS::IBIS(int _maxSPNum, int _compacity ) {
     labels = nullptr;
     maxSPNumber = _maxSPNum;
     compacity = _compacity;
@@ -395,15 +395,7 @@ void IBIS::init() {
 void IBIS::reset() {
     int index_xy;
 
-#if MASK_chrono
-    Mt1 = 0;
-    Mt2 = 0;
-    Mt3 = 0;
-    Mt4 = 0;
-
-#endif
-
-    st1 = 0;
+    st4 = 0;
     st2 = 0;
     st3 = 0;
 

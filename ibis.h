@@ -169,12 +169,8 @@ private:
     float* bvec;
 
 public:
-    double slicTime;
-    double st1, st2, st3, st4, st5, st6;
-    double Mt1, Mt2, Mt3, Mt4;
+    double st2, st3, st4;
 
-    int slicNum;
-    int selectedSp = -1;		// Rq : -1 is used in labels for pixels that are not included in any superpixel.
 };
 
 #endif // IBIS_H
