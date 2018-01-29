@@ -1,8 +1,6 @@
 # IBIS
 
-This repo. is dedicated to the IBIS super-pixel method.
-
-This method was submitted at the IEEE ICPR 2018 conference.
+This repo. is dedicated to the IBIS super-pixel method submitted at the IEEE ICPR 2018 conference.
 
 #### Abstract : 
 
@@ -10,3 +8,14 @@ Superpixels are becoming increasingly popular for use in computer vision applica
 Our method is extremely fast while keeping a high precision of segmentation. Experimental results show that the segmentation can be performed much faster, up to 10 times compared to SLIC. Furthermore, the intrinsic parallelism of this method enables efficient implementations on GPU or any multi-core platforms to be proposed.
 
 ![alt text](https://github.com/xapha/IBIS/blob/master/intro.png "intro figure")
+
+## IBIS implementation
+
+This implementation is done in C++ and was tested on unix environment.
+
+For benchmark comparison, please refer to the *ibis.h* file for options description.
+
+## Dependences :
+
+You will need *cmake* and *openCV* to run this code.
+For paralell execution, you will need *openMP* as well.
