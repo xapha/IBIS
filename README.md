@@ -28,8 +28,8 @@ For paralell execution, you will need *openMP* as well.
 ```Shell Session
 git clone "git@github.com:xapha/IBIS.git"
 cd IBIS
-mkdir results
 mkdir build && cd build
+mkdir results
 cmake -D CMAKE_BUILD_TYPE=Release ..
 make
 ./IBIS
