@@ -26,7 +26,7 @@ For paralell execution, you will need *openMP* as well.
 
 
 ```Shell Session
-git clone "git@github.com:xapha/IBIS.git"
+git clone "https://github.com/xapha/IBIS.git"
 cd IBIS
 mkdir build && cd build
 mkdir results
