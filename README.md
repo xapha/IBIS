@@ -33,3 +33,5 @@ cmake -D CMAKE_BUILD_TYPE=Release ..
 make
 ./IBIS
 ```
+Temporal version of IBIS for video stream:
+[IBIS temporal](https://github.com/xapha/IBIS_Temporal)
