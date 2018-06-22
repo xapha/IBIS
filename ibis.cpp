@@ -1,6 +1,6 @@
 /* -- Serge Bobbia : serge.bobbia@u-bourgogne.fr -- Le2i 2018
  * This work is distributed for non commercial use only,
- * it implements the IBIS method as described in the ICPR 2018 paper.
+ * it implements the IBIS method as described in the CVPM 2018 paper.
  *
  * Read the ibis.h file for options and benchmark instructions
  */
