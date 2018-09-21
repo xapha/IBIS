@@ -1,6 +1,6 @@
 /* -- Serge Bobbia : serge.bobbia@u-bourgogne.fr -- Le2i 2018
  * This work is distributed for non commercial use only,
- * it implements the IBIS method as described in the ICPR 2018 paper.
+ * it implements the IBIS method as described in the CVPM 2018 paper.
  * The multi-threading is done with openMP, which is not an optimal solution
  * But was chosen as it was the simpliest way to do it without further justifications.
  *
