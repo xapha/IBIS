@@ -445,7 +445,10 @@ void IBIS::getLAB( cv::Mat* img ) {
 }
 
 void IBIS::process( cv::Mat* img ) {
+#if OUTPUT_log
     double lap;
+    double plab;
+#endif
 
     if( size == 0 ) {
         size = img->cols * img->rows;
@@ -461,16 +464,21 @@ void IBIS::process( cv::Mat* img ) {
     }
 
     // convert to Lab
+#if OUTPUT_log
+    plab = now_ms();
+#endif
+
     getLAB( img );
 
     // prepare value to compute a picture
     reset();
 
-    // STEP 2 : process IBIS
 #if OUTPUT_log
+    plab = now_ms() - plab;
     lap = now_ms();
 #endif
 
+    // STEP 2 : process IBIS
     mask_propagate_SP();
 
 #if OUTPUT_log
@@ -491,7 +499,8 @@ void IBIS::process( cv::Mat* img ) {
     // output log
 #if OUTPUT_log
     printf("-----------------\n");
-    printf("PERF_T %lf\n", st3+st4);
+    printf("PERF_T %lf\n", st3+st4+plab);
+    printf("pre-processing\t\t%lf\t ms\n", plab);
     printf("IBIS.process\t\t%lf\t ms\n", st3);
     printf("IBIS.post_process\t%lf\t ms\n", st4);
 
@@ -971,6 +980,7 @@ void IBIS::MASK::fill_mask() {
             assign_labels( index_var_y, index_var_x, IBIS_data->vertical_index[ index_var_y ] + index_var_x, angular );
 
         }
+        
     }
 
     filled = true;
