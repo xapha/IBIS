@@ -18,7 +18,7 @@ For benchmark comparison, please refer to the *ibis.h* file for options descript
 
 ## Dependences :
 
-You will need *cmake* and *openCV* to run this code.
+You will need *cmake* and *openCV* ( versions 3.X ) to run this code.
 For paralell execution, you will need *openMP* as well.
 
 ## Compilation
